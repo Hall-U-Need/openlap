@@ -10,7 +10,7 @@ import { filter, first, mergeMap, timeout } from 'rxjs/operators';
 import { AppSettings } from './app-settings';
 import { Backend } from './backend';
 import { ControlUnit } from './carrera';
-import { AppService, ControlUnitService, I18nAlertService, I18nToastService, LoggingService, SpeechService } from './services';
+import { AppService, ControlUnitService, I18nAlertService, I18nToastService, LoggingService, SpeechService, ExternalApiService, CarSyncService } from './services';
 
 const CONNECTION_TIMEOUT = 3000;
 
@@ -38,7 +38,9 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     private speech: SpeechService,
     private toast: I18nToastService,
     private translate: TranslateService,
-    private swUpdate: SwUpdate)
+    private swUpdate: SwUpdate,
+    private externalApi: ExternalApiService,
+    private carSync: CarSyncService)
   {
     if (window.screen) {
       window.screen.orientation.addEventListener('change', () => {
@@ -69,10 +71,14 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       this.speech.setRate(options.rate / 1000.0);
       this.speech.setPitch(options.pitch / 1000.0);
     });
+
+    // Initialiser la synchronisation des voitures avec l'API externe
+    this.initializeExternalApi();
   }
 
   ngOnDestroy() {
     this.cu.next(null);
+    this.externalApi.stopPolling();
   }
 
   ngAfterViewInit() {
@@ -145,6 +151,9 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
         }).catch(error => {
           this.logger.error('Error connecting to ' + connection.name + ':', error);
         }).then(() => {
+          // Démarrer le polling de l'API externe et la synchronisation des voitures
+          this.externalApi.startPolling();
+          this.carSync.startCarSync();
           this.app.hideSplashScreen();
         });
       } else {
@@ -152,5 +161,21 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
         this.cu.next(null);
       }
     });
+  }
+
+  private initializeExternalApi() {
+    try {
+      this.logger.info('Initializing external API car synchronization');
+      
+      // Démarrer le polling de l'API
+      this.externalApi.startPolling();
+      
+      // Démarrer la synchronisation des voitures
+      this.carSync.startCarSync();
+      
+      this.logger.info('External API car synchronization started successfully');
+    } catch (error) {
+      this.logger.error('Error initializing external API:', error);
+    }
   }
 }

@@ -6,7 +6,25 @@
         {{item.id + 1}}
     </ng-template>
     <ng-template ngSwitchCase="name">
-        {{item.driver?.name}}
+        <span *ngIf="!isEditingName" (click)="startEditName($event)" class="driver-name-display">
+            {{item.driver?.name}}
+        </span>
+        <div *ngIf="isEditingName" class="driver-name-edit" (click)="$event.stopPropagation()">
+            <ion-input [ngModel]="editingName"
+                       (ngModelChange)="onNameChange($event)"
+                       (keydown)="onKeyPress($event)"
+                       class="driver-name-input"
+                       clearInput
+                       enterkeyhint="done"
+                       size="small">
+            </ion-input>
+            <ion-button size="small" fill="clear" (click)="saveName()">
+                <ion-icon name="checkmark"></ion-icon>
+            </ion-button>
+            <ion-button size="small" fill="clear" (click)="cancelEdit()">
+                <ion-icon name="close"></ion-icon>
+            </ion-button>
+        </div>
     </ng-template>
     <ng-template ngSwitchCase="code">
         {{item.driver?.code}}
@@ -66,6 +84,36 @@
     </ng-template>
     <ng-template ngSwitchCase="fuel">
         <gauge [max]="15" [value]="item.fuel">&nbsp;</gauge>
+    </ng-template>
+    <ng-template ngSwitchCase="status-combined">
+        <div class="status-combined">
+            <!-- Barre de throttle -->
+            <div class="throttle-bar">
+                <div class="throttle-fill" [style.height.%]="item.throttle || 0"></div>
+            </div>
+            
+            <!-- Bouton pressé/relâché -->
+            <span class="button-indicator" [ngClass]="item.buttonPressed ? 'button-pressed' : 'button-released'">
+                {{item.buttonPressed ? '●' : '○'}}
+            </span>
+            
+            <!-- État de paiement/blocage -->
+            <span (click)="toggleCarBlock($event)" 
+                  class="payment-status-button"
+                  [ngClass]="{
+                    'manual-blocked': item.manuallyBlocked,
+                    'manual-unblocked': item.manuallyUnblocked && !item.manuallyBlocked,
+                    'payment-ok': item.hasPaid && !item.manuallyBlocked && !item.manuallyUnblocked,
+                    'payment-waiting': !item.hasPaid && !item.manuallyUnblocked && !item.manuallyBlocked
+                  }">
+                <!-- États par priorité : manually_blocked > manually_unblocked > normal (basé sur has_coin) -->
+                <ng-container *ngIf="item.manuallyBlocked">🔴</ng-container>
+                <ng-container *ngIf="item.manuallyUnblocked && !item.manuallyBlocked">🟢</ng-container>
+                <!-- État normal : pas d'intervention manuelle, affichage basé sur has_coin -->
+                <ng-container *ngIf="!item.manuallyBlocked && !item.manuallyUnblocked && item.hasPaid">🪙</ng-container>
+                <ng-container *ngIf="!item.manuallyBlocked && !item.manuallyUnblocked && !item.hasPaid">⚫</ng-container>
+            </span>
+        </div>
     </ng-template>
     <ng-template ngSwitchCase="status">
         <checkerboard [cols]="7" [rows]="5" *ngIf="item.finished"></checkerboard>

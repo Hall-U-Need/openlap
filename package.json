@@ -32,7 +32,7 @@
     "@awesome-cordova-plugins/social-sharing": "^6.16.0",
     "@awesome-cordova-plugins/splash-screen": "^6.16.0",
     "@awesome-cordova-plugins/status-bar": "^6.16.0",
-    "@awesome-cordova-plugins/text-to-speech-advanced": "file:./local_modules/text-to-speech-advanced",
+    "@awesome-cordova-plugins/text-to-speech-advanced": "^6.16.0",
     "@awesome-cordova-plugins/toast": "^6.16.0",
     "@ionic/angular": "^8.5.6",
     "@ionic/cordova-builders": "^12.2.0",

@@ -11,7 +11,8 @@ import { distinctUntilChanged, filter, map, mergeMap, pairwise, share, skipWhile
 
 import { AppSettings, Options, RaceOptions } from '../app-settings';
 import { ControlUnit } from '../carrera';
-import { AppService, ControlUnitService, LoggingService, SpeechService } from '../services';
+import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService } from '../services';
+import { CarSyncService } from '../services/car-sync.service';
 
 import { LeaderboardItem } from './leaderboard';
 import { RmsMenu } from './rms.menu';
@@ -59,7 +60,8 @@ export class RmsPage implements OnDestroy, OnInit {
 
   constructor(public cu: ControlUnitService, private app: AppService,
     private logger: LoggingService, private settings: AppSettings, private speech: SpeechService,
-    private popover: PopoverController, private translate: TranslateService, route: ActivatedRoute)
+    private popover: PopoverController, private translate: TranslateService, route: ActivatedRoute,
+    private carSync: CarSyncService, private externalApi: ExternalApiService)
   {
     const mode = route.snapshot.paramMap.get('mode');
     switch (mode) {
@@ -116,7 +118,7 @@ export class RmsPage implements OnDestroy, OnInit {
   }
 
   startSession(cu: ControlUnit, options: RaceOptions) {
-    const session = new Session(cu, options);
+    const session = new Session(cu, options, this.carSync);
 
     this.lapcount = session.currentLap.pipe(
       map(lap => {
@@ -262,8 +264,8 @@ export class RmsPage implements OnDestroy, OnInit {
     );
     const gridpos = [];
     const pitfuel = [];
-    this.items = combineLatest([session.ranking, drivers, order]).pipe(
-      map(([ranks, drivers, order]) => {
+    this.items = combineLatest([session.ranking, drivers, order, this.externalApi.cars$, this.externalApi.coinAcceptors$]).pipe(
+      map(([ranks, drivers, order, apiCars, coinAcceptors]) => {
         const items = ranks.map((item, index) => {
           if (options.mode == 'race' && gridpos[item.id] === undefined && item.time !== undefined) {
             gridpos[item.id] = index;
@@ -271,11 +273,23 @@ export class RmsPage implements OnDestroy, OnInit {
           if (!item.pit || item.fuel < pitfuel[item.id]) {
             pitfuel[item.id] = item.fuel;
           }
+          // Obtenir les données en temps réel depuis l'API
+          const carInfo = apiCars.find(car => car.car_id === item.id + 1); // item.id est 0-based, API car_id est 1-based
+          const coinInfo = coinAcceptors.find(coin => coin.id === item.id + 1);
+          const hasPaid = carInfo ? carInfo.has_coin : (coinInfo ? coinInfo.coin_count > 0 : false);
+          
           return Object.assign({}, item, {
             position: index,
             driver: drivers[item.id],
             gridpos: gridpos[item.id],
-            refuel: item.pit && item.fuel > pitfuel[item.id]
+            refuel: item.pit && item.fuel > pitfuel[item.id],
+            throttle: carInfo ? carInfo.accelerator_percent : 0,
+            buttonPressed: carInfo ? carInfo.button_pressed : false,
+            hasPaid: hasPaid,
+            waitingForPayment: !hasPaid && carInfo && carInfo.active,
+            blocked: carInfo ? carInfo.blocked : false,
+            manuallyUnblocked: carInfo ? carInfo.manually_unblocked : false,
+            manuallyBlocked: carInfo ? carInfo.manually_blocked : false
           });
         });
         items.sort(compare[order || 'position']);

@@ -7,30 +7,30 @@ import { Subscription } from 'rxjs';
 const FIELDS = [{
   // no fuel/pit lane
   practice: [
-    'bestlap gap int lastlap laps status',
-    'bestlap sector1 sector2 sector3 lastlap status'
+    'bestlap gap int lastlap laps status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap status-combined status'
   ],
   qualifying: [
-    'bestlap gap int lastlap laps status',
-    'bestlap sector1 sector2 sector3 lastlap status'
+    'bestlap gap int lastlap laps status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap status-combined status'
   ],
   race: [
-    'time bestlap lastlap laps status',
-    'time sector1 sector2 sector3 lastlap status',
+    'time bestlap lastlap laps status-combined status',
+    'time sector1 sector2 sector3 lastlap status-combined status',
   ]
 }, {
   // with fuel/pit lane
   practice: [
-    'bestlap gap int lastlap laps fuel status',
-    'bestlap sector1 sector2 sector3 lastlap fuel status'
+    'bestlap gap int lastlap laps fuel status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap fuel status-combined status'
   ],
   qualifying: [
-    'bestlap gap int lastlap laps fuel status',
-    'bestlap sector1 sector2 sector3 lastlap fuel status'
+    'bestlap gap int lastlap laps fuel status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap fuel status-combined status'
   ],
   race: [
-    'time bestlap lastlap laps pits fuel status',
-    'time sector1 sector2 sector3 lastlap fuel status'
+    'time bestlap lastlap laps pits fuel status-combined status',
+    'time sector1 sector2 sector3 lastlap fuel status-combined status'
   ]
 }];
 
@@ -55,6 +55,13 @@ export class LeaderboardItem {
   gridpos?: number;
   refuel?: boolean;
   finished?: boolean;
+  throttle?: number;
+  buttonPressed?: boolean;
+  hasPaid?: boolean;
+  waitingForPayment?: boolean;
+  blocked?: boolean;
+  manuallyUnblocked?: boolean;
+  manuallyBlocked?: boolean;
 }
 
 // TODO: merge with LeaderboardItem, i.e. times == laptimes?

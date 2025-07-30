@@ -1,8 +1,9 @@
 import { EMPTY, BehaviorSubject, Observable, interval, merge } from 'rxjs';
-import { combineLatestWith, distinctUntilChanged, filter, groupBy, map, mergeMap, publishReplay, refCount, scan, share, startWith, tap, withLatestFrom } from 'rxjs/operators';
+import { combineLatestWith, distinctUntilChanged, filter, groupBy, map, mergeMap, publishReplay, refCount, scan, share, startWith, tap, withLatestFrom, switchMap, combineLatest } from 'rxjs/operators';
 
 import { RaceOptions } from '../app-settings';
 import { ControlUnit } from '../carrera';
+import { CarSyncService } from '../services/car-sync.service';
 
 const TIMER_INTERVAL = 500;
 
@@ -71,7 +72,7 @@ export class Session {
   private realMask: number = null;
 
   // TODO: move settings handling/combine to race-control!
-  constructor(public cu: ControlUnit, public options: RaceOptions) {
+  constructor(public cu: ControlUnit, public options: RaceOptions, private carSync?: CarSyncService) {
     const compare = COMPARE[options.mode];
 
     const reset = merge(
@@ -187,7 +188,21 @@ export class Session {
   }
 
   start() {
-    this.started = true;
+    // Consommer les pièces pour toutes les voitures participantes avant de démarrer
+    if (this.carSync) {
+      this.carSync.consumeCoinsForParticipatingCars().subscribe({
+        next: (results) => {
+          console.log('Coins consumed for participating cars:', results);
+          this.started = true;
+        },
+        error: (error) => {
+          console.error('Error consuming coins, starting race anyway:', error);
+          this.started = true;
+        }
+      });
+    } else {
+      this.started = true;
+    }
   }
 
   stop() {
@@ -221,13 +236,55 @@ export class Session {
       }
       mask >>>= 1;
     }
-    return timer.pipe(startWith(...init), groupBy(([id]) => id), map(group => {
+
+    // Ajouter les voitures détectées par l'API externe si le service est disponible
+    // Les voitures apparaissent dans le leaderboard mais ne peuvent enregistrer des temps que si elles ont payé
+    if (this.carSync) {
+      const activeCars = this.carSync.getActiveCars();
+      activeCars.forEach(car => {
+        const arrayIndex = car.car_id - 1; // car_id est 1-based, array 0-based
+        if (arrayIndex >= 0 && arrayIndex < 8 && !(mask & (1 << arrayIndex))) {
+          // Ajouter toutes les voitures actives pour qu'elles apparaissent dans le leaderboard
+          init.push([arrayIndex, NaN, 0]);
+          this.active |= (1 << arrayIndex);
+        }
+      });
+    }
+
+    // Créer un observable qui surveille les changements des voitures actives
+    const dynamicCarEntries = this.carSync ? 
+      this.carSync.cars$.pipe(
+        distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
+        map(apiCars => {
+          const newEntries: [number, number, number][] = [];
+          apiCars.forEach(car => {
+            const arrayIndex = car.car_id - 1;
+            if (arrayIndex >= 0 && arrayIndex < 8 && car.active) {
+              // Vérifier si cette voiture n'est pas déjà active
+              if (!(this.active & (1 << arrayIndex))) {
+                newEntries.push([arrayIndex, NaN, 0]);
+                this.active |= (1 << arrayIndex);
+              }
+            }
+          });
+          return newEntries;
+        }),
+        filter(newEntries => newEntries.length > 0), // Seulement émettre s'il y a de nouvelles voitures
+        mergeMap(newEntries => newEntries)
+      ) : EMPTY;
+
+    return merge(
+      timer.pipe(startWith(...init)),
+      dynamicCarEntries
+    ).pipe(groupBy(([id]) => id), map(group => {
       type TimeInfo = [number[][], number[], number[], boolean];
       this.active |= (1 << group.key);
 
       const times = group.pipe(scan(([times, last, best, finished]: TimeInfo, [id, time, sensor]: [number, number, number]) => {
         const tail = times[times.length - 1] || [];
-        if (sensor && time > (tail.length >= sensor ? tail[sensor - 1] : -Infinity) + this.options.minLapTime) {
+        // Vérifier si la voiture a payé avant d'enregistrer les temps
+        const canRecordTime = !this.carSync || this.carSync.hasCarPaid(id + 1); // id est 0-based, car_id est 1-based
+        if (sensor && time > (tail.length >= sensor ? tail[sensor - 1] : -Infinity) + this.options.minLapTime && canRecordTime) {
           if (sensor === 1) {
             times.push([time]);
             last[0] = time - tail[0];
@@ -304,6 +361,19 @@ export class Session {
     if (id !== undefined) {
       this.cu.setFinished(id);
     }
+    
+    // Bloquer toutes les voitures actives à la fin de la course
+    if (this.carSync && this.stopped) {
+      this.carSync.blockAllActiveCars().subscribe({
+        next: (results) => {
+          console.log('All active cars blocked:', results);
+        },
+        error: (error) => {
+          console.error('Error blocking cars:', error);
+        }
+      });
+    }
+    
     this.finished.next(true);
   }
 

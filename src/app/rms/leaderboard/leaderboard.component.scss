@@ -163,3 +163,136 @@ gauge {
         background: linear-gradient(to right, red, #ee0 25%, green 50%, darkGreen);
     }
 }
+
+.status-combined {
+    width: 4em;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.throttle-bar {
+    width: 6px;
+    height: 18px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.throttle-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(to top, #ff0000 0%, #ffff00 50%, #00ff00 100%);
+    border-radius: 1px;
+    transition: height 0.2s ease;
+    min-height: 1px;
+}
+
+.button-indicator {
+    flex-shrink: 0;
+    
+    &.button-pressed {
+        color: #ff4444;
+        font-size: 100%;
+        font-weight: bold;
+    }
+    
+    &.button-released {
+        color: #666666;
+        font-size: 100%;
+    }
+}
+
+.button-pressed {
+    color: #ff4444;
+    font-size: 120%;
+    font-weight: bold;
+}
+
+.button-released {
+    color: #666666;
+    font-size: 120%;
+}
+
+.payment-status-button {
+    cursor: pointer;
+    font-size: 100%;
+    font-weight: bold;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    
+    &:hover {
+        transform: scale(1.1);
+    }
+    
+    &.payment-ok {
+        color: #ffdd00; // Pièce jaune = payé
+    }
+    
+    &.payment-waiting {
+        color: #666666; // Gris = en attente de paiement
+        opacity: 0.6;
+    }
+    
+    &.manual-blocked {
+        color: #ff4444; // Rouge = bloqué manuellement
+    }
+    
+    &.manual-unblocked {
+        color: #44ff44; // Vert = débloqué manuellement
+    }
+}
+
+.driver-name-display {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+    
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+.driver-name-edit {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.driver-name-input {
+    --padding-start: 4px;
+    --padding-end: 4px;
+    --padding-top: 2px;
+    --padding-bottom: 2px;
+    font-size: inherit;
+    flex: 1;
+    min-width: 0;
+    
+    ion-input {
+        --color: inherit;
+        --background: rgba(255, 255, 255, 0.1);
+        --border-radius: 3px;
+    }
+}
+
+.driver-name-edit ion-button {
+    --padding-start: 4px;
+    --padding-end: 4px;
+    --padding-top: 2px;
+    --padding-bottom: 2px;
+    min-width: auto;
+    width: 24px;
+    height: 24px;
+    
+    ion-icon {
+        font-size: 14px;
+    }
+}

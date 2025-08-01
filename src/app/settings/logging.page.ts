@@ -42,4 +42,8 @@ export class LoggingPage {
     }
   }
 
+  trackByIndex(index: number, item: any) {
+    return index;
+  }
+
 }

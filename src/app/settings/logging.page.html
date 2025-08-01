@@ -14,9 +14,9 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content>
+<ion-content [scrollY]="true">
   <ion-list>
-    <ion-item *ngFor="let record of logger.records">
+    <ion-item *ngFor="let record of logger.records; trackBy: trackByIndex">
       <ion-icon slot="start" [name]="icons[record.level]?.name" [ngStyle]="icons[record.level]?.style"></ion-icon>
       <ion-label class="ion-text-wrap">
         <span slot="start">{{record.time | date:'HH:mm:ss'}}.{{(record.time % 1000) | number:'3.0-0'}}:</span>

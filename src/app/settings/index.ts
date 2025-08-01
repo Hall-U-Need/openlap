@@ -4,5 +4,6 @@ export * from './about.page';
 export * from './logging.page';
 export * from './licenses.page';
 export * from './connection.page';
+export * from './external-api.page';
 export * from './notifications.page';
 export * from './voice.page';

@@ -61,6 +61,12 @@ export class Connection {
   demoControlUnit = isDevMode();
 }
 
+export class ExternalApi {
+  apiUrl = 'http://10.8.17.64/api';
+  pollingInterval = 250;
+  enabled = false;
+}
+
 export class Options {
   cumode = true;
   debug = isDevMode();
@@ -195,5 +201,15 @@ export class AppSettings {
 
   setRaceSettings(value: any) {
     return this.settings.set('race', value);
+  }
+
+  getExternalApi() {
+    return this.settings.observe('externalApi').pipe(
+      map(value => Object.assign(new ExternalApi(), value))
+    );
+  }
+
+  setExternalApi(value: ExternalApi) {
+    return this.settings.set('externalApi', value);
   }
 }

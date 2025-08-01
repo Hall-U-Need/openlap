@@ -1,0 +1,67 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>
+      <span translate>External API</span>
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list lines="full">
+    <ion-item>
+      <ion-toggle [(ngModel)]="externalApi.enabled" (ionChange)="save()">
+        <ion-label translate>Enable External API</ion-label>
+      </ion-toggle>
+    </ion-item>
+    
+    <ion-item>
+      <ion-input
+        label="{{'API URL' | translate}}"
+        labelPlacement="stacked"
+        type="url"
+        [(ngModel)]="externalApi.apiUrl"
+        (ionChange)="save()"
+        placeholder="http://192.168.1.100/api"
+        [disabled]="!externalApi.enabled"
+      ></ion-input>
+    </ion-item>
+    
+    <ion-item>
+      <ion-input
+        label="{{'Polling Interval (ms)' | translate}}"
+        labelPlacement="stacked"
+        type="number"
+        [(ngModel)]="externalApi.pollingInterval"
+        (ionChange)="save()"
+        placeholder="250"
+        [disabled]="!externalApi.enabled"
+      ></ion-input>
+    </ion-item>
+    
+    <ion-item>
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        [disabled]="!externalApi.enabled || !externalApi.apiUrl || isTestingConnection"
+        (click)="testConnection()">
+        <ion-icon name="wifi" slot="start"></ion-icon>
+        <span *ngIf="!isTestingConnection" translate>Test Connection</span>
+        <span *ngIf="isTestingConnection" translate>Testing...</span>
+        <ion-spinner *ngIf="isTestingConnection" name="dots" slot="end"></ion-spinner>
+      </ion-button>
+    </ion-item>
+    
+    <ion-item lines="none">
+      <ion-label class="ion-text-wrap">
+        <p translate>Configure the external API for coin acceptor control. The API URL should point to your coin control system.</p>
+        <p><strong translate>Current status:</strong> 
+          <span *ngIf="externalApi.enabled" class="ion-color-success" translate>Enabled</span>
+          <span *ngIf="!externalApi.enabled" class="ion-color-medium" translate>Disabled</span>
+        </p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+</ion-content>

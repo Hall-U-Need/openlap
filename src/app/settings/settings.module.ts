@@ -9,6 +9,7 @@ import { SharedModule } from '../shared';
 
 import { AboutPage } from './about.page';
 import { ConnectionPage } from './connection.page';
+import { ExternalApiPage } from './external-api.page';
 import { LicensesPage } from './licenses.page';
 import { LoggingMenu } from './logging.menu';
 import { LoggingPage } from './logging.page';
@@ -38,6 +39,10 @@ const routes: Routes = [
     component: ConnectionPage
   },
   {
+    path: 'external-api',
+    component: ExternalApiPage
+  },
+  {
     path: 'notifications',
     component: NotificationsPage
   },
@@ -51,6 +56,7 @@ const routes: Routes = [
   declarations: [
     AboutPage,
     ConnectionPage,
+    ExternalApiPage,
     LicensesPage,
     LoggingMenu,
     LoggingPage,

@@ -39,7 +39,6 @@
     "@ionic/storage-angular": "^4.0.0",
     "@ngx-translate/core": "^16.0.4",
     "@ngx-translate/http-loader": "^16.0.1",
-    "cordova-android": "^14.0.0",
     "cordova-ios": "^7.0.0",
     "cordova-plugin-app-version": "^0.1.12",
     "cordova-plugin-ble-central": "^2.0.0",
@@ -69,14 +68,16 @@
     "@angular/compiler-cli": "^18.2.13",
     "@angular/language-service": "^18.2.13",
     "@ionic/angular-toolkit": "^12.2.0",
+    "cordova-android": "^14.0.1",
+    "cordova-plugin-android-permissions": "^1.1.5",
     "es6-promise-plugin": "^4.2.2",
     "ts-node": "~8.3.0",
     "typescript": "~5.4.5"
   },
   "cordova": {
     "platforms": [
-      "android",
-      "ios"
+      "ios",
+      "android"
     ],
     "plugins": {
       "cordova-plugin-app-version": {},
@@ -97,7 +98,8 @@
       "cordova-plugin-x-socialsharing": {},
       "cordova-plugin-x-toast": {},
       "cordova-sqlite-storage": {},
-      "cordovarduino": {}
+      "cordovarduino": {},
+      "cordova-plugin-android-permissions": {}
     }
   }
 }

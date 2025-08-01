@@ -71,9 +71,6 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       this.speech.setRate(options.rate / 1000.0);
       this.speech.setPitch(options.pitch / 1000.0);
     });
-
-    // Initialiser la synchronisation des voitures avec l'API externe
-    this.initializeExternalApi();
   }
 
   ngOnDestroy() {
@@ -151,9 +148,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
         }).catch(error => {
           this.logger.error('Error connecting to ' + connection.name + ':', error);
         }).then(() => {
-          // Démarrer le polling de l'API externe et la synchronisation des voitures
-          this.externalApi.startPolling();
-          this.carSync.startCarSync();
+          // Initialiser l'API externe après la connexion
+          this.initializeExternalApi();
           this.app.hideSplashScreen();
         });
       } else {

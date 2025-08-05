@@ -10,7 +10,7 @@ import { filter, first, mergeMap, timeout } from 'rxjs/operators';
 import { AppSettings } from './app-settings';
 import { Backend } from './backend';
 import { ControlUnit } from './carrera';
-import { AppService, ControlUnitService, I18nAlertService, I18nToastService, LoggingService, SpeechService, ExternalApiService, CarSyncService } from './services';
+import { AppService, ControlUnitService, I18nAlertService, I18nToastService, LoggingService, SpeechService, ExternalApiService, CarSyncService, WebDisplayService } from './services';
 
 const CONNECTION_TIMEOUT = 3000;
 
@@ -40,7 +40,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     private translate: TranslateService,
     private swUpdate: SwUpdate,
     private externalApi: ExternalApiService,
-    private carSync: CarSyncService)
+    private carSync: CarSyncService,
+    private webDisplay: WebDisplayService)
   {
     if (window.screen) {
       window.screen.orientation.addEventListener('change', () => {
@@ -76,6 +77,7 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   ngOnDestroy() {
     this.cu.next(null);
     this.externalApi.stopPolling();
+    this.webDisplay.stopServer();
   }
 
   ngAfterViewInit() {

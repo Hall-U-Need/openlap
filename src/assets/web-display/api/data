@@ -1,0 +1,17 @@
+{
+  "race": {
+    "mode": "practice",
+    "status": "stopped",
+    "time": 0,
+    "laps": 0,
+    "currentLap": 0
+  },
+  "leaderboard": [],
+  "realtime": {
+    "timestamp": 0,
+    "bestLap": 0,
+    "totalLaps": 0,
+    "activeCars": 0,
+    "cars": []
+  }
+}

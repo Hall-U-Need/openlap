@@ -67,6 +67,18 @@ export class ExternalApi {
   enabled = false;
 }
 
+export class WebDisplay {
+  enabled = false;
+  port = 8080;
+  showDriverNames = true;
+  showCarNumbers = true;
+  showBestLaps = true;
+  showGaps = true;
+  theme = 'dark'; // 'dark' | 'light' | 'race'
+  autoRefresh = true;
+  refreshInterval = 100; // ms
+}
+
 export class Options {
   cumode = true;
   debug = isDevMode();
@@ -211,5 +223,15 @@ export class AppSettings {
 
   setExternalApi(value: ExternalApi) {
     return this.settings.set('externalApi', value);
+  }
+
+  getWebDisplay() {
+    return this.settings.observe('webDisplay').pipe(
+      map(value => Object.assign(new WebDisplay(), value))
+    );
+  }
+
+  setWebDisplay(value: WebDisplay) {
+    return this.settings.set('webDisplay', value);
   }
 }

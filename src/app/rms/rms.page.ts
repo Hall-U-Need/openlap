@@ -13,6 +13,7 @@ import { AppSettings, Options, RaceOptions } from '../app-settings';
 import { ControlUnit } from '../carrera';
 import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService } from '../services';
 import { CarSyncService } from '../services/car-sync.service';
+import { WebDisplayService } from '../services/web-display.service';
 
 import { LeaderboardItem } from './leaderboard';
 import { RmsMenu } from './rms.menu';
@@ -61,7 +62,8 @@ export class RmsPage implements OnDestroy, OnInit {
   constructor(public cu: ControlUnitService, private app: AppService,
     private logger: LoggingService, private settings: AppSettings, private speech: SpeechService,
     private popover: PopoverController, private translate: TranslateService, route: ActivatedRoute,
-    private carSync: CarSyncService, private externalApi: ExternalApiService)
+    private carSync: CarSyncService, private externalApi: ExternalApiService, 
+    private webDisplay: WebDisplayService)
   {
     const mode = route.snapshot.paramMap.get('mode');
     switch (mode) {
@@ -119,6 +121,9 @@ export class RmsPage implements OnDestroy, OnInit {
 
   startSession(cu: ControlUnit, options: RaceOptions) {
     const session = new Session(cu, options, this.carSync);
+    
+    // Connecter la session au service d'affichage web avec les options
+    this.webDisplay.connectSession(session, options);
 
     this.lapcount = session.currentLap.pipe(
       map(lap => {
@@ -370,6 +375,8 @@ export class RmsPage implements OnDestroy, OnInit {
     if (this.dataSubscription) {
       this.dataSubscription.unsubscribe();
     }
+    // Déconnecter le service d'affichage web
+    this.webDisplay.disconnectSession();
   }
 
   ionViewDidEnter(){

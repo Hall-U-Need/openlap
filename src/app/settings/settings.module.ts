@@ -16,6 +16,7 @@ import { LoggingPage } from './logging.page';
 import { NotificationsPage } from './notifications.page';
 import { SettingsPage } from './settings.page';
 import { VoicePage } from './voice.page';
+import { WebDisplayPage } from './web-display.page';
 
 const routes: Routes = [
   {
@@ -49,6 +50,10 @@ const routes: Routes = [
   {
     path: 'voice',
     component: VoicePage
+  },
+  {
+    path: 'web-display',
+    component: WebDisplayPage
   }
 ];
 
@@ -62,6 +67,7 @@ const routes: Routes = [
     LoggingPage,
     NotificationsPage,
     VoicePage,
+    WebDisplayPage,
     SettingsPage
   ],
   exports: [

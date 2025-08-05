@@ -1,0 +1,257 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>
+      <span translate>Web Display</span>
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list lines="full">
+    <!-- Enable/Disable Toggle -->
+    <ion-item>
+      <ion-toggle [(ngModel)]="webDisplay.enabled" (ionChange)="save()">
+        <ion-label translate>Enable Web Display</ion-label>
+      </ion-toggle>
+    </ion-item>
+    
+    <!-- Server Configuration -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label translate>Server Configuration</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-input
+          label="{{'Port' | translate}}"
+          labelPlacement="stacked"
+          type="number"
+          [(ngModel)]="webDisplay.port"
+          (ionChange)="save()"
+          placeholder="8080"
+          [disabled]="!webDisplay.enabled"
+          min="1000"
+          max="65535"
+        ></ion-input>
+      </ion-item>
+      
+      <ion-item>
+        <ion-input
+          label="{{'Refresh Interval (ms)' | translate}}"
+          labelPlacement="stacked"
+          type="number"
+          [(ngModel)]="webDisplay.refreshInterval"
+          (ionChange)="save()"
+          placeholder="100"
+          [disabled]="!webDisplay.enabled"
+          min="50"
+          max="5000"
+        ></ion-input>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Display Options -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label translate>Display Options</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-select
+          label="{{'Theme' | translate}}"
+          [(ngModel)]="webDisplay.theme"
+          (ionChange)="save()"
+          [disabled]="!webDisplay.enabled"
+        >
+          <ion-select-option value="dark" translate>Dark</ion-select-option>
+          <ion-select-option value="light" translate>Light</ion-select-option>
+          <ion-select-option value="race" translate>Race</ion-select-option>
+        </ion-select>
+      </ion-item>
+      
+      <ion-item>
+        <ion-toggle [(ngModel)]="webDisplay.showDriverNames" (ionChange)="save()" [disabled]="!webDisplay.enabled">
+          <ion-label translate>Show Driver Names</ion-label>
+        </ion-toggle>
+      </ion-item>
+      
+      <ion-item>
+        <ion-toggle [(ngModel)]="webDisplay.showCarNumbers" (ionChange)="save()" [disabled]="!webDisplay.enabled">
+          <ion-label translate>Show Car Numbers</ion-label>
+        </ion-toggle>
+      </ion-item>
+      
+      <ion-item>
+        <ion-toggle [(ngModel)]="webDisplay.showBestLaps" (ionChange)="save()" [disabled]="!webDisplay.enabled">
+          <ion-label translate>Show Best Lap Times</ion-label>
+        </ion-toggle>
+      </ion-item>
+      
+      <ion-item>
+        <ion-toggle [(ngModel)]="webDisplay.showGaps" (ionChange)="save()" [disabled]="!webDisplay.enabled">
+          <ion-label translate>Show Time Gaps</ion-label>
+        </ion-toggle>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Server Control -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label translate>Server Control</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-button 
+          expand="block" 
+          [color]="isServerRunning ? 'danger' : 'primary'"
+          [disabled]="!webDisplay.enabled || isStartingServer"
+          (click)="toggleServer()">
+          <ion-icon [name]="isServerRunning ? 'stop-circle' : 'play-circle'" slot="start"></ion-icon>
+          <span *ngIf="!isStartingServer && !isServerRunning" translate>Start Server</span>
+          <span *ngIf="!isStartingServer && isServerRunning" translate>Stop Server</span>
+          <span *ngIf="isStartingServer" translate>Please wait...</span>
+          <ion-spinner *ngIf="isStartingServer" name="dots" slot="end"></ion-spinner>
+        </ion-button>
+      </ion-item>
+
+      <ion-item *ngIf="isServerRunning">
+        <ion-button 
+          expand="block" 
+          color="secondary"
+          (click)="forceDriversUpdate()">
+          <ion-icon name="refresh" slot="start"></ion-icon>
+          <span translate>Update Drivers Data</span>
+        </ion-button>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Server Status -->
+    <ion-item-group *ngIf="webDisplay.enabled">
+      <ion-item-divider>
+        <ion-label translate>Server Status</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label>
+          <h3 translate>Status</h3>
+          <p>
+            <ion-icon 
+              [name]="isServerRunning ? 'checkmark-circle' : 'close-circle'" 
+              [color]="isServerRunning ? 'success' : 'danger'">
+            </ion-icon>
+            <span [style.color]="isServerRunning ? 'green' : 'red'">
+              {{ isServerRunning ? ('Running' | translate) : ('Stopped' | translate) }}
+            </span>
+          </p>
+        </ion-label>
+      </ion-item>
+      
+      <ion-item *ngIf="isServerRunning && serverUrl">
+        <ion-label>
+          <h3 translate>mDNS URL (Recommended)</h3>
+          <p>{{ serverUrl }}</p>
+          <small translate>Use this friendly name on most devices</small>
+        </ion-label>
+        <ion-button fill="clear" slot="end" (click)="copyServerUrl()">
+          <ion-icon name="copy"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" slot="end" (click)="openWebDisplay()">
+          <ion-icon name="open"></ion-icon>
+        </ion-button>
+      </ion-item>
+      
+      <ion-item *ngIf="isServerRunning && serverIP">
+        <ion-label>
+          <h3 translate>IP Address (Fallback)</h3>
+          <p>{{ serverIP }}</p>
+          <small translate>Use this if mDNS doesn't work</small>
+        </ion-label>
+        <ion-button fill="clear" slot="end" (click)="copyServerIP()">
+          <ion-icon name="copy"></ion-icon>
+        </ion-button>
+      </ion-item>
+      
+      <ion-item *ngIf="isServerRunning">
+        <ion-label>
+          <h3 translate>Connected Clients</h3>
+          <p>{{ connectedClients }}</p>
+        </ion-label>
+      </ion-item>
+
+      <ion-item *ngIf="isServerRunning">
+        <ion-label>
+          <h3 translate>WebSocket Server</h3>
+          <p>
+            <ion-icon 
+              [name]="wsServerStatus ? 'checkmark-circle' : 'close-circle'" 
+              [color]="wsServerStatus ? 'success' : 'warning'">
+            </ion-icon>
+            <span [style.color]="wsServerStatus ? 'green' : 'orange'">
+              {{ wsServerStatus ? ('Running on port 8081' | translate) : ('Not available' | translate) }}
+            </span>
+          </p>
+          <small *ngIf="!wsServerStatus" translate>WebSocket plugin not installed. Using HTTP polling only.</small>
+          <small *ngIf="wsServerStatus" translate>Real-time updates via WebSocket on ws://{{detectedIP}}:8081</small>
+        </ion-label>
+      </ion-item>
+
+      <ion-item *ngIf="detectedIP">
+        <ion-label>
+          <h3 translate>Detected WiFi IP</h3>
+          <p>{{ detectedIP }}</p>
+          <small translate>This is your phone's current WiFi IP address</small>
+        </ion-label>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- QR Code for easy access -->
+    <ion-item-group *ngIf="isServerRunning && serverUrl">
+      <ion-item-divider>
+        <ion-label translate>Quick Access</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label class="ion-text-center">
+          <h3 translate>Scan QR Code</h3>
+          <div class="qr-code-container">
+            <img [src]="getQRCodeUrl()" alt="QR Code" style="max-width: 200px; max-height: 200px;" />
+          </div>
+          <p class="ion-margin-top">
+            <small translate>Scan this QR code with any device to access the race display</small>
+          </p>
+        </ion-label>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Information -->
+    <ion-item lines="none">
+      <ion-label class="ion-text-wrap">
+        <h3 translate>About Web Display</h3>
+        <p translate>The Web Display creates a server on your phone that shows race information in real-time. Other devices can connect to view the leaderboard, timing data, and race status.</p>
+        <p translate><strong>Usage:</strong></p>
+        <ul>
+          <li translate>Connect your display device to the same WiFi network as this phone</li>
+          <li translate>Open a web browser on the display device</li>
+          <li translate>Try the mDNS URL first (openlap.local), then fallback to IP if needed</li>
+          <li translate>The display will automatically update with live race data</li>
+        </ul>
+        <p translate><strong>mDNS Benefits:</strong></p>
+        <ul>
+          <li translate>Friendly hostname (openlap.local) instead of IP address</li>
+          <li translate>Works even if the phone's IP changes</li>
+          <li translate>Automatically discovered by compatible devices</li>
+          <li translate>Supported by most modern devices and browsers</li>
+        </ul>
+        <p translate><strong>Communication Methods:</strong></p>
+        <ul>
+          <li translate><strong>WebSocket (Preferred):</strong> Real-time updates with instant data transmission</li>
+          <li translate><strong>HTTP Polling (Fallback):</strong> Regular data updates when WebSocket is unavailable</li>
+        </ul>
+        <p translate><strong>Perfect for:</strong> External monitors, tablets, smart TVs, projectors</p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+</ion-content>

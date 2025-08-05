@@ -122,8 +122,10 @@ export class RmsPage implements OnDestroy, OnInit {
   startSession(cu: ControlUnit, options: RaceOptions) {
     const session = new Session(cu, options, this.carSync);
     
-    // Connecter la session au service d'affichage web avec les options
-    this.webDisplay.connectSession(session, options);
+    // Garder la session pour RMS (affichage natif)
+    this.session = session;
+    
+    // WebDisplay sera reconnecté après que this.items soit configuré
 
     this.lapcount = session.currentLap.pipe(
       map(lap => {
@@ -303,6 +305,9 @@ export class RmsPage implements OnDestroy, OnInit {
       share()
     );
 
+    // WebDisplay sera connecté par ionViewDidEnter() après la navigation
+    this.logger.info('🔄 New session created - WebDisplay will connect via ionViewDidEnter()');
+
     if (this.subscriptions) {
       this.subscriptions.unsubscribe();
     }
@@ -379,7 +384,13 @@ export class RmsPage implements OnDestroy, OnInit {
     this.webDisplay.disconnectSession();
   }
 
+  ionViewWillEnter() {
+    this.logger.info('🚪 ionViewWillEnter called');
+  }
+
   ionViewDidEnter(){
+    this.logger.info('🚪 ionViewDidEnter called');
+    
     this.backButtonSubscription = this.app.backButton.subscribe(() => {
       // TODO: confirm or press back button twice?
       if (this.cu.value) {
@@ -392,6 +403,31 @@ export class RmsPage implements OnDestroy, OnInit {
         this.app.exit();
       }
     });
+    
+    // Connecter WebDisplay SEULEMENT quand l'observable items émet sa première valeur
+    if (this.session && this.items) {
+      this.logger.info('🎯 Session and items available, waiting for first emission...');
+      
+      // S'abonner temporairement pour attendre la première émission
+      const testSub = this.items.subscribe(items => {
+        this.logger.info('✅ Items observable is emitting! Connecting WebDisplay now.', {
+          itemsCount: items?.length,
+          mode: this.session?.options?.mode
+        });
+        
+        // Connecter WebDisplay maintenant qu'on sait que l'observable fonctionne
+        this.webDisplay.connectToRmsData(this, this.session.options);
+        
+        // Se désabonner de ce test
+        testSub.unsubscribe();
+      });
+      
+    } else {
+      this.logger.warn('⚠️ Session or items not available:', {
+        hasSession: !!this.session,
+        hasItems: !!this.items
+      });
+    }
   }
 
   ionViewWillLeave(){

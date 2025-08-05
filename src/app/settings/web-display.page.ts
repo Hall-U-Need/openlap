@@ -135,7 +135,7 @@ export class WebDisplayPage implements OnDestroy, OnInit {
   }
 
   forceDriversUpdate() {
-    this.webDisplayService.forceDriversUpdate();
-    this.toast.showShortCenter('Drivers data update requested - check logs for details');
+    // OLD APPROACH REMOVED - data now comes directly from RMS component
+    this.toast.showShortCenter('Data now comes directly from RMS - old force update removed');
   }
 }

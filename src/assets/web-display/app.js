@@ -10,8 +10,8 @@ class RaceDisplay {
         // WebSocket only - no more API JSON polling
         this.websocket = null;
         this.wsPort = 8081; // Fixed port - matches server
-        this.reconnectDelay = 2000; // Start with 2s
-        this.maxReconnectDelay = 10000; // Max 10s
+        this.reconnectDelay = 1000; // Start with 1s
+        this.maxReconnectDelay = 3000; // Max 3s
         this.updateThrottle = null;
         this.throttleDelay = 100; // 100ms throttle
         
@@ -552,34 +552,12 @@ class RaceDisplay {
         // Vider l'affichage quand il n'y a pas de connexion
         this.elements.leaderboard.innerHTML = '';
         this.elements.timingGrid.innerHTML = '';
-        
-        // Afficher un message informatif
-        const noConnectionMessage = document.createElement('div');
-        noConnectionMessage.className = 'no-connection-message';
-        noConnectionMessage.innerHTML = `
-            <div class="message-content">
-                <h3>🔌 Aucune connexion au serveur</h3>
-                <p>Assurez-vous que :</p>
-                <ul>
-                    <li>L'application OpenLap est ouverte sur votre téléphone</li>
-                    <li>Le serveur Web Display est démarré dans les paramètres</li>
-                    <li>Votre appareil est sur le même réseau WiFi</li>
-                </ul>
-                <p><strong>Tentative de reconnexion automatique...</strong></p>
-            </div>
-        `;
-        
-        this.elements.leaderboard.appendChild(noConnectionMessage);
-        this.updateConnectionStatus(false, 'Pas de connexion serveur');
+        // Le statut de connexion WebSocket est déjà affiché dans l'interface
     }
 
     showWelcomeMessage() {
-        // Afficher un message d'attente au lieu de données factices
-        setTimeout(() => {
-            if (!this.isConnected) {
-                this.showNoConnectionMessage();
-            }
-        }, 2000);
+        // Le statut de connexion WebSocket gère déjà l'affichage
+        // Plus besoin d'afficher un message spécial après 2 secondes
     }
 
     formatTime(milliseconds) {
@@ -635,7 +613,7 @@ class RaceDisplay {
                 this.updateConnectionStatus(true, `Connected to WebSocket (port ${this.wsPort})`);
                 
                 // Reset reconnect delay on successful connection
-                this.reconnectDelay = 2000;
+                this.reconnectDelay = 1000;
                 
                 // Send ping to test connection
                 this.websocket.send('ping');

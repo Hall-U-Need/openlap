@@ -85,11 +85,7 @@ export class ExternalApiService {
     
     return this.http.get<ApiResponse>(this.apiUrl).pipe(
       tap(response => {
-        this.logger.debug('API response received:', {
-          carsCount: response.cars?.length || 0,
-          coinAcceptorsCount: response.coin_acceptors?.length || 0,
-          timestamp: response.timestamp
-        });
+        // Log removed to reduce noise - API polling every 250ms
         this.carsSubject.next(response.cars);
         this.coinAcceptorsSubject.next(response.coin_acceptors);
         this.timestampSubject.next(response.timestamp);

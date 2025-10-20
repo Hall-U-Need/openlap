@@ -291,8 +291,69 @@ gauge {
     min-width: auto;
     width: 24px;
     height: 24px;
-    
+
     ion-icon {
         font-size: 14px;
+    }
+}
+
+.brakeWear {
+    text-align: center;
+    width: 3.5em;
+}
+
+.brake-wear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 85%;
+    font-weight: bold;
+    border: 1.5px solid;
+
+    .brake-icon {
+        font-size: 90%;
+    }
+
+    &.brake-good {
+        background-color: rgba(0, 255, 0, 0.15);
+        border-color: #00ff00;
+        color: #00ff00;
+
+        .brake-icon {
+            color: #00ff00;
+        }
+    }
+
+    &.brake-worn {
+        background-color: rgba(255, 165, 0, 0.15);
+        border-color: #ffaa00;
+        color: #ffaa00;
+
+        .brake-icon {
+            color: #ffaa00;
+        }
+    }
+
+    &.brake-critical {
+        background-color: rgba(255, 0, 0, 0.15);
+        border-color: #ff0000;
+        color: #ff0000;
+        animation: brake-pulse 1.5s ease-in-out infinite;
+
+        .brake-icon {
+            color: #ff0000;
+        }
+    }
+}
+
+@keyframes brake-pulse {
+    0%, 100% {
+        box-shadow: 0 0 3px rgba(255, 0, 0, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 8px rgba(255, 0, 0, 0.9);
     }
 }

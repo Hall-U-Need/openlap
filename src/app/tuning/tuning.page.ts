@@ -41,20 +41,20 @@ export class TuningPage implements OnDestroy, OnInit {
 
   readonly fromCU = {
     'speed': [0, 1, 2, 3, 5, 6, 7, 9, 11, 13, 15],
-    'brake': [0, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    'brake': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     'fuel':  [0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   };
 
   readonly toCU = {
     'speed': [1, 1, 2, 3, 3, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10],
-    'brake': [1, 1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    'brake': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     'fuel':  [1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
   }
 
   private subject = new Subject<{type: string, id: number}>();
 
   constructor(private logger: LoggingService, private cu: ControlUnitService, private popover: PopoverController,
-    private ref: ChangeDetectorRef, app: AppService, settings: AppSettings
+    private ref: ChangeDetectorRef, app: AppService, private settings: AppSettings
   ) {
     this.connected = cu.pipe(
       filter(cu => !!cu),
@@ -75,6 +75,18 @@ export class TuningPage implements OnDestroy, OnInit {
           break;
         case 'brake':
           this.cu.value.setBrake(model.id, model.brake);
+          // Sauvegarder la valeur dans les settings du driver
+          this.settings.getDrivers().pipe(
+            map(drivers => {
+              const updatedDrivers = [...drivers];
+              if (updatedDrivers[model.id]) {
+                updatedDrivers[model.id] = { ...updatedDrivers[model.id], brake: model.brake };
+              }
+              return updatedDrivers;
+            })
+          ).subscribe(updatedDrivers => {
+            this.settings.setDrivers(updatedDrivers);
+          }).unsubscribe();
           break;
         case 'fuel':
           this.cu.value.setFuel(model.id, model.fuel);

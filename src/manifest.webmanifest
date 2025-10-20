@@ -1,8 +1,8 @@
 {
-  "name": "Open Lap",
-  "short_name": "Open Lap",
-  "theme_color": "#383a3e",
-  "background_color": "#222428",
+  "name": "HUN RACE",
+  "short_name": "HUN RACE",
+  "theme_color": "#000000",
+  "background_color": "#000000",
   "display": "fullscreen",
   "scope": "/openlap/",
   "start_url": "/openlap/index.html",

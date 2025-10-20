@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, timer, EMPTY } from 'rxjs';
-import { catchError, map, switchMap, tap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, EMPTY, defer } from 'rxjs';
+import { catchError, map, tap, timeout, delay, repeat } from 'rxjs/operators';
 
 import { LoggingService } from './logging.service';
 import { ApiResponse, ApiCar, CoinAcceptor } from './api-models';
@@ -13,18 +13,21 @@ import { AppSettings } from '../app-settings';
 export class ExternalApiService {
   private baseApiUrl = 'http://10.8.17.64/api';
   private apiUrl = `${this.baseApiUrl}/cars`;
-  private pollingInterval = 250;
+  private httpTimeout = 1000; // Timeout de 1 seconde pour les requêtes HTTP
   private enabled = false;
+  private pollingSubscription?: any;
   
   private carsSubject = new BehaviorSubject<ApiCar[]>([]);
   private coinAcceptorsSubject = new BehaviorSubject<CoinAcceptor[]>([]);
   private timestampSubject = new BehaviorSubject<number>(0);
   private isPollingSubject = new BehaviorSubject<boolean>(false);
+  private isConnectedSubject = new BehaviorSubject<boolean>(false);
 
   public cars$ = this.carsSubject.asObservable();
   public coinAcceptors$ = this.coinAcceptorsSubject.asObservable();
   public timestamp$ = this.timestampSubject.asObservable();
   public isPolling$ = this.isPollingSubject.asObservable();
+  public isConnected$ = this.isConnectedSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -37,14 +40,12 @@ export class ExternalApiService {
       this.enabled = config.enabled;
       this.baseApiUrl = config.apiUrl;
       this.apiUrl = `${this.baseApiUrl}/cars`;
-      this.pollingInterval = config.pollingInterval;
-      
+
       this.logger.info('External API configuration updated:', {
         enabled: this.enabled,
-        apiUrl: this.baseApiUrl,
-        pollingInterval: this.pollingInterval
+        apiUrl: this.baseApiUrl
       });
-      
+
       // Redémarrer le polling si la configuration a changé et que l'API est activée
       if (this.enabled && wasEnabled && this.isPollingSubject.value) {
         this.stopPolling();
@@ -62,19 +63,28 @@ export class ExternalApiService {
     }
 
     this.isPollingSubject.next(true);
-    this.logger.info('Starting API polling', { url: this.apiUrl, interval: this.pollingInterval });
+    this.logger.info('Starting continuous API polling (100ms delay between requests)', { url: this.apiUrl });
 
-    timer(0, this.pollingInterval).pipe(
-      switchMap(() => this.isPollingSubject.value && this.enabled ? this.fetchData() : EMPTY),
-      catchError(error => {
-        this.logger.error('API polling error:', error);
-        return EMPTY;
-      })
-    ).subscribe();
+    // Polling continu avec délai de 100ms entre chaque requête
+    const poll = () => {
+      if (!this.isPollingSubject.value || !this.enabled) {
+        return;
+      }
+
+      this.fetchData().subscribe({
+        complete: () => {
+          // Petit délai de 100ms avant de relancer pour éviter de saturer
+          setTimeout(() => poll(), 100);
+        }
+      });
+    };
+
+    poll(); // Démarrer le polling
   }
 
   stopPolling(): void {
     this.isPollingSubject.next(false);
+    this.isConnectedSubject.next(false);
     this.logger.info('Stopping API polling');
   }
 
@@ -82,38 +92,60 @@ export class ExternalApiService {
     if (!this.enabled) {
       return EMPTY;
     }
-    
+
     return this.http.get<ApiResponse>(this.apiUrl).pipe(
+      timeout({ first: this.httpTimeout }),
       tap(response => {
-        // Log removed to reduce noise - API polling every 250ms
-        this.carsSubject.next(response.cars);
-        this.coinAcceptorsSubject.next(response.coin_acceptors);
+        // Forcer une nouvelle référence pour que combineLatest se redéclenche
+        this.carsSubject.next([...response.cars]);
+        this.coinAcceptorsSubject.next([...response.coin_acceptors]);
         this.timestampSubject.next(response.timestamp);
+
+        // Marquer comme connecté en cas de succès
+        const wasDisconnected = !this.isConnectedSubject.value;
+        this.isConnectedSubject.next(true);
+        if (wasDisconnected) {
+          this.logger.info('✅ External API connected');
+        }
       }),
       catchError(error => {
-        this.logger.error('Failed to fetch API data from:', this.apiUrl);
-        this.logger.error('Error details:', {
-          status: error.status,
-          statusText: error.statusText,
-          message: error.message,
-          url: error.url,
-          name: error.name
-        });
-        
-        // Diagnostics supplémentaires
-        if (error.status === 0) {
-          this.logger.error('Network error - possible causes:');
-          this.logger.error('1. API server not running at', this.baseApiUrl);
-          this.logger.error('2. Network connectivity issues');
-          this.logger.error('3. CORS policy blocking the request');
-          this.logger.error('4. Firewall blocking the connection');
-        } else if (error.status === 404) {
-          this.logger.error('API endpoint not found. Check if', this.apiUrl, 'is correct');
-        } else if (error.status >= 500) {
-          this.logger.error('Server error at', this.baseApiUrl);
+        // Marquer comme déconnecté en cas d'erreur
+        const wasConnected = this.isConnectedSubject.value;
+        this.isConnectedSubject.next(false);
+
+        if (wasConnected) {
+          this.logger.error('❌ External API connection lost');
+          this.logger.error('Failed to fetch API data from:', this.apiUrl);
+
+          // Log du type d'erreur
+          if (error.name === 'TimeoutError') {
+            this.logger.error('Error: Request timeout after', this.httpTimeout, 'ms');
+          } else {
+            this.logger.error('Error details:', {
+              status: error.status,
+              statusText: error.statusText,
+              message: error.message,
+              url: error.url,
+              name: error.name
+            });
+
+            // Diagnostics supplémentaires
+            if (error.status === 0) {
+              this.logger.error('Network error - possible causes:');
+              this.logger.error('1. API server not running at', this.baseApiUrl);
+              this.logger.error('2. Network connectivity issues');
+              this.logger.error('3. CORS policy blocking the request');
+              this.logger.error('4. Firewall blocking the connection');
+            } else if (error.status === 404) {
+              this.logger.error('API endpoint not found. Check if', this.apiUrl, 'is correct');
+            } else if (error.status >= 500) {
+              this.logger.error('Server error at', this.baseApiUrl);
+            }
+          }
         }
-        
-        throw error;
+
+        // Retourner EMPTY pour continuer le polling sans erreur
+        return EMPTY;
       })
     );
   }
@@ -132,8 +164,8 @@ export class ExternalApiService {
   }
 
   setPollingInterval(intervalMs: number): void {
-    // Méthode pour configurer l'intervalle de polling
-    (this as any).pollingInterval = intervalMs;
+    // Méthode obsolète - le polling est maintenant continu sans intervalle
+    this.logger.warn('setPollingInterval is deprecated - polling is now continuous');
   }
 
   getActiveCars(): ApiCar[] {

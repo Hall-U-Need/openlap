@@ -5,6 +5,9 @@
     </ion-buttons>
     <race-title [mode]="mode" [laps]="lapcount | async" [time]="session?.timer | async" [finished]="session?.finished | async"></race-title>
     <ion-buttons slot="end">
+      <div class="api-status-indicator" [class.connected]="apiConnected | async" [class.disconnected]="!(apiConnected | async)">
+        <ion-icon name="cloud-outline"></ion-icon>
+      </div>
       <ion-button *ngIf="(orientation | async) == 'landscape'" (click)="toggleSpeech()">
         <ion-icon slot="icon-only" [name]="options?.speech ? 'volume-high-sharp' : 'volume-mute-sharp'"></ion-icon>
       </ion-button>

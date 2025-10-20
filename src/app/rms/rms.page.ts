@@ -51,6 +51,8 @@ export class RmsPage implements OnDestroy, OnInit {
 
   legacyAndroid: Promise<boolean>;
 
+  apiConnected: Observable<boolean>;
+
   private subscriptions: Subscription;
 
   private backButtonSubscription: Subscription;
@@ -100,6 +102,14 @@ export class RmsPage implements OnDestroy, OnInit {
 
     this.orientation = app.orientation;  // for showing/hiding additional icons
 
+    // Observable pour le statut de connexion à l'API externe
+    this.apiConnected = this.externalApi.isConnected$;
+
+    // Debug: Log les changements de statut API
+    this.apiConnected.subscribe(connected => {
+      this.logger.info('🔔 API Connection status changed:', connected ? 'CONNECTED ✅' : 'DISCONNECTED ❌');
+    });
+
     // flag for older Android versions that require Location services and support USB OTG connections
     this.legacyAndroid = app.isAndroid() && app.isCordova() ?
       app.getDeviceInfo().then(device => (device.version < '12')) :
@@ -144,10 +154,10 @@ export class RmsPage implements OnDestroy, OnInit {
       const observables = drivers.map((obj, index) => {
         const code = obj.code || '#' + (index + 1);
         if (obj.name) {
-          return of({name: obj.name, code: code, color: obj.color});
+          return of({name: obj.name, code: code, color: obj.color, brake: obj.brake});
         } else {
           return this.getTranslations('Driver {{number}}', {number: index + 1}).pipe(map((name: string) => {
-            return {name: name, code: code, color: obj.color}
+            return {name: name, code: code, color: obj.color, brake: obj.brake}
           }));
         }
       });
@@ -296,7 +306,8 @@ export class RmsPage implements OnDestroy, OnInit {
             waitingForPayment: !hasPaid && carInfo && carInfo.active,
             blocked: carInfo ? carInfo.blocked : false,
             manuallyUnblocked: carInfo ? carInfo.manually_unblocked : false,
-            manuallyBlocked: carInfo ? carInfo.manually_blocked : false
+            manuallyBlocked: carInfo ? carInfo.manually_blocked : false,
+            brakeWear: drivers[item.id]?.brake !== undefined ? drivers[item.id].brake : 15
           });
         });
         items.sort(compare[order || 'position']);

@@ -85,6 +85,17 @@
     <ng-template ngSwitchCase="fuel">
         <gauge [max]="15" [value]="item.fuel">&nbsp;</gauge>
     </ng-template>
+    <ng-template ngSwitchCase="brakeWear">
+        <div class="brake-wear"
+             [ngClass]="{
+               'brake-good': (item.brakeWear !== undefined ? item.brakeWear : 15) >= 12,
+               'brake-worn': (item.brakeWear !== undefined ? item.brakeWear : 15) >= 6 && (item.brakeWear !== undefined ? item.brakeWear : 15) < 12,
+               'brake-critical': (item.brakeWear !== undefined ? item.brakeWear : 15) < 6
+             }">
+            <span class="brake-icon">🔴</span>
+            <span class="brake-value">{{item.brakeWear !== undefined ? item.brakeWear : 15}}</span>
+        </div>
+    </ng-template>
     <ng-template ngSwitchCase="status-combined">
         <div class="status-combined">
             <!-- Barre de throttle -->

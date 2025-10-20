@@ -1,8 +1,8 @@
 {
-  "name": "openlap",
-  "author": "Thomas Kemmer",
-  "homepage": "https://github.com/tkem/openlap/",
-  "description": "Open Source Slotcar Race App for Carrera(R) Digital 124/132",
+  "name": "hun-race",
+  "author": "Hall U Need",
+  "homepage": "https://halluneed.com/",
+  "description": "Slotcar Race Management App for Carrera(R) Digital 124/132",
   "license": "Apache-2.0",
   "private": true,
   "repository": {

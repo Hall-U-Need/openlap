@@ -53,7 +53,7 @@ class RaceDisplay {
 
     init() {
         console.log('OpenLap Race Display initialized');
-        this.updateConnectionStatus(false, 'Connecting...');
+        this.updateConnectionStatus(false, 'Connexion...');
         this.connectWebSocket();
         this.setupEventListeners();
         this.showWelcomeMessage();
@@ -108,25 +108,67 @@ class RaceDisplay {
     }
 
     updateRaceHeader(raceData) {
-        this.elements.raceMode.textContent = raceData.mode.toUpperCase();
-        this.elements.raceStatus.textContent = raceData.status.toUpperCase();
-        
+        // Traduction des modes
+        const modeTranslations = {
+            'practice': 'ENTRAÎNEMENT',
+            'qualifying': 'QUALIFICATIONS',
+            'race': 'COURSE'
+        };
+        this.elements.raceMode.textContent = modeTranslations[raceData.mode.toLowerCase()] || raceData.mode.toUpperCase();
+
+        // Traduction des statuts
+        const statusTranslations = {
+            'stopped': 'ARRÊTÉ',
+            'ready': 'PRÊT',
+            'running': 'EN COURS',
+            'finished': 'TERMINÉE',
+            'paused': 'PAUSE',
+            'waiting': 'EN ATTENTE'
+        };
+        this.elements.raceStatus.textContent = statusTranslations[raceData.status.toLowerCase()] || raceData.status.toUpperCase();
+
         // Ajouter des classes CSS spécifiques selon le statut
         let statusClass = 'race-status';
-        if (raceData.status.toLowerCase().includes('cours')) {
+        if (raceData.status.toLowerCase().includes('cours') || raceData.status.toLowerCase() === 'running') {
             statusClass += ' running';
-        } else if (raceData.status.toLowerCase().includes('attente')) {
+        } else if (raceData.status.toLowerCase().includes('attente') || raceData.status.toLowerCase() === 'waiting') {
             statusClass += ' waiting';
-        } else if (raceData.status.toLowerCase().includes('prêt')) {
+        } else if (raceData.status.toLowerCase().includes('prêt') || raceData.status.toLowerCase() === 'ready') {
             statusClass += ' ready';
-        } else if (raceData.status.toLowerCase().includes('terminée')) {
+        } else if (raceData.status.toLowerCase().includes('terminée') || raceData.status.toLowerCase() === 'finished') {
             statusClass += ' finished';
         }
         this.elements.raceStatus.className = statusClass;
-        
-        this.elements.raceTime.textContent = this.formatTime(raceData.time);
-        this.elements.currentLap.textContent = `Lap ${raceData.currentLap}`;
+
+        this.elements.raceTime.textContent = this.formatDuration(raceData.time);
+        this.elements.currentLap.textContent = `Tour ${raceData.currentLap}`;
         this.elements.totalLaps.textContent = raceData.laps === 0 ? '∞' : raceData.laps;
+
+        // Mettre à jour les feux de départ
+        this.updateStartLights(raceData.startLights || 0, raceData.startBlink || false);
+    }
+
+    updateStartLights(lights, blink) {
+        // Récupérer tous les feux
+        const lightElements = document.querySelectorAll('.start-light');
+
+        lightElements.forEach((light, index) => {
+            const lightNumber = index + 1;
+
+            // Retirer toutes les classes
+            light.classList.remove('active', 'blink', 'green');
+
+            if (blink) {
+                // Faux départ : tous les feux clignotent en rouge
+                light.classList.add('active', 'blink');
+            } else if (lights === 0) {
+                // Course lancée : tous les feux passent au vert
+                light.classList.add('green');
+            } else if (lightNumber <= lights) {
+                // Séquence de départ : feux rouges progressifs
+                light.classList.add('active');
+            }
+        });
     }
 
     updateLeaderboard(leaderboardData) {
@@ -218,6 +260,10 @@ class RaceDisplay {
             <div class="payment-status">${this.getPaymentStatus(entry)}</div>
             <div class="pit-status">${this.getPitStatus(entry)}</div>
             <div class="car-status">${this.getCarStatus(entry)}</div>
+            <div class="brake-wear ${this.getBrakeWearClass(entry.brakeWear !== undefined ? entry.brakeWear : 15)}">
+                <span class="brake-icon">🔴</span>
+                <span class="brake-value">${entry.brakeWear !== undefined ? entry.brakeWear : 15}</span>
+            </div>
         `;
 
         return entryElement;
@@ -241,6 +287,13 @@ class RaceDisplay {
         if (!entry.manuallyBlocked && !entry.manuallyUnblocked && entry.hasPaid) return '🪙'; // Pièce - a payé
         if (!entry.manuallyBlocked && !entry.manuallyUnblocked && !entry.hasPaid) return '⚫'; // Noir - pas payé
         return '⚫';
+    }
+
+    getBrakeWearClass(brakeWear) {
+        // 15-12: green (new/good), 11-6: yellow (worn), 5-0: red (critical)
+        if (brakeWear >= 12) return 'brake-good';
+        if (brakeWear >= 6) return 'brake-worn';
+        return 'brake-critical';
     }
 
     updateLeaderboardEntry(element, entry, index) {
@@ -317,20 +370,20 @@ class RaceDisplay {
             hasChanges = true;
         }
 
-        // Update throttle
+        // Update throttle (but don't mark as significant change)
         const throttlePercentage = Math.max(0, Math.min(100, entry.throttle || 0));
         if (throttleFill.style.height !== `${throttlePercentage}%`) {
             throttleFill.style.height = `${throttlePercentage}%`;
-            hasChanges = true;
+            // Don't set hasChanges = true for throttle updates
         }
 
-        // Update button status
+        // Update button status (but don't mark as significant change)
         const buttonClass = entry.buttonPressed ? 'pressed' : 'released';
         const buttonSymbol = entry.buttonPressed ? '●' : '○';
         if (!buttonIndicator.classList.contains(buttonClass)) {
             buttonIndicator.className = `button-indicator ${buttonClass}`;
             buttonIndicator.textContent = buttonSymbol;
-            hasChanges = true;
+            // Don't set hasChanges = true for button updates
         }
 
         // Update payment status
@@ -352,6 +405,22 @@ class RaceDisplay {
         if (carStatus.textContent !== newCarStatus) {
             carStatus.textContent = newCarStatus;
             hasChanges = true;
+        }
+
+        // Update brake wear
+        const brakeWear = element.querySelector('.brake-wear');
+        const brakeValue = element.querySelector('.brake-value');
+        if (brakeWear && brakeValue) {
+            const brakeWearValue = entry.brakeWear !== undefined ? entry.brakeWear : 15;
+            const newBrakeClass = this.getBrakeWearClass(brakeWearValue);
+
+            if (brakeValue.textContent !== brakeWearValue.toString()) {
+                brakeValue.textContent = brakeWearValue;
+                brakeWear.className = `brake-wear ${newBrakeClass}`;
+                hasChanges = true;
+            } else if (!brakeWear.classList.contains(newBrakeClass)) {
+                brakeWear.className = `brake-wear ${newBrakeClass}`;
+            }
         }
 
         // Update class for position styling
@@ -599,22 +668,25 @@ class RaceDisplay {
             return; // Already connected or connecting
         }
 
-        const hostname = window.location.hostname;
+        // Check URL parameter for custom IP, otherwise use current hostname
+        const urlParams = new URLSearchParams(window.location.search);
+        const customIP = urlParams.get('wsip');
+        const hostname = customIP || window.location.hostname;
         const wsUrl = `ws://${hostname}:${this.wsPort}`;
-        
+
         console.log(`🔌 Attempting to connect WebSocket on fixed port ${this.wsPort}:`, wsUrl);
-        this.updateConnectionStatus(false, `Connecting to WebSocket (port ${this.wsPort})...`);
+        this.updateConnectionStatus(false, `Connexion au WebSocket (port ${this.wsPort})...`);
 
         try {
             this.websocket = new WebSocket(wsUrl);
 
             this.websocket.onopen = () => {
                 console.log(`✅ WebSocket connected successfully on port ${this.wsPort}`);
-                this.updateConnectionStatus(true, `Connected to WebSocket (port ${this.wsPort})`);
-                
+                this.updateConnectionStatus(true, `Connecté au WebSocket (port ${this.wsPort})`);
+
                 // Reset reconnect delay on successful connection
                 this.reconnectDelay = 1000;
-                
+
                 // Send ping to test connection
                 this.websocket.send('ping');
             };
@@ -661,25 +733,25 @@ class RaceDisplay {
 
             this.websocket.onclose = (event) => {
                 console.log(`🔌 WebSocket disconnected from port ${this.wsPort}:`, event.code, event.reason);
-                this.updateConnectionStatus(false, 'WebSocket disconnected');
-                
+                this.updateConnectionStatus(false, 'WebSocket déconnecté');
+
                 // Schedule reconnection
-                this.scheduleReconnect();  
+                this.scheduleReconnect();
             };
 
             this.websocket.onerror = (error) => {
                 console.error(`❌ WebSocket error on port ${this.wsPort}:`, error);
                 this.websocket = null; // Clean up failed connection
-                
+
                 console.warn(`🚫 WebSocket connection failed on port ${this.wsPort}`);
-                this.updateConnectionStatus(false, `WebSocket server not available on port ${this.wsPort} - check app settings`);
+                this.updateConnectionStatus(false, `Serveur WebSocket indisponible sur le port ${this.wsPort} - vérifiez les paramètres`);
                 this.showWebSocketInfo();
                 this.scheduleReconnect(); // Retry same port after delay
             };
 
         } catch (error) {
             console.error('❌ Failed to create WebSocket:', error);
-            this.updateConnectionStatus(false, 'WebSocket failed - server not available');
+            this.updateConnectionStatus(false, 'Échec WebSocket - serveur non disponible');
             this.showWebSocketInfo();
         }
     }

@@ -116,3 +116,48 @@ ion-button {
         --box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
     }
 }
+
+/* API Status Indicator */
+.api-status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    margin-right: 8px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+
+    ion-icon {
+        font-size: 20px;
+    }
+
+    &.connected {
+        background-color: rgba(16, 185, 129, 0.15);
+        color: var(--ion-color-success);
+
+        ion-icon {
+            color: var(--ion-color-success);
+        }
+
+        animation: pulse-green 2s ease-in-out infinite;
+    }
+
+    &.disconnected {
+        background-color: rgba(239, 68, 68, 0.15);
+        color: var(--ion-color-danger);
+        opacity: 0.5;
+
+        ion-icon {
+            color: var(--ion-color-danger);
+        }
+    }
+}
+
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}

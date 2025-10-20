@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { Platform } from '@ionic/angular';
-import { BehaviorSubject, Observable, Subscription } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, combineLatest } from 'rxjs';
+import { distinctUntilChanged, map } from 'rxjs/operators';
 // Simplified imports for new RMS-based approach
 
 import { LoggingService } from './logging.service';
@@ -17,6 +18,8 @@ interface WebDisplayData {
     time: number;
     laps: number;
     currentLap: number;
+    startLights?: number;  // 0-5: nombre de feux allumés
+    startBlink?: boolean;  // true si les feux clignotent
   };
   leaderboard: Array<{
     position: number;
@@ -39,6 +42,7 @@ interface WebDisplayData {
     blocked: boolean;
     manuallyUnblocked: boolean;
     manuallyBlocked: boolean;
+    brakeWear: number;
   }>;
   realtime: {
     timestamp: number;
@@ -90,7 +94,14 @@ export class WebDisplayService implements OnDestroy {
   private localHostname = 'openlap.local';
   private localIPAddress: string | null = null;
   private sessionSubscription?: Subscription;
+  private timerSubscription?: Subscription;
+  private startLightsSubscription?: Subscription;
+  private lapCountSubscription?: Subscription;
   private currentSession?: Session;
+  private currentOptions?: any;
+  private currentTime = 0;
+  private currentLap = 0;
+  private currentRaceStatus = 'En cours';
   private pitfuel: number[] = [];
   private broadcastThrottleTimer: any = null;
   private pendingBroadcast = false;
@@ -300,9 +311,11 @@ export class WebDisplayService implements OnDestroy {
       mode: options?.mode,
       hasComponent: !!rmsComponent,
       hasItems: !!rmsComponent?.items,
+      hasSession: !!rmsComponent?.session,
+      hasCu: !!rmsComponent?.cu,
       sessionId: Math.random().toString(36).substr(2, 9) // Pour tracking
     });
-    
+
     // Vérifications de sécurité
     if (!rmsComponent || !rmsComponent.items) {
       this.logger.error('❌ RMS component or items not available:', {
@@ -311,11 +324,89 @@ export class WebDisplayService implements OnDestroy {
       });
       return;
     }
-    
+
     // Déconnecter la session précédente
     this.disconnectSession();
-    
+
+    // Stocker les options pour les utiliser dans les updates
+    this.currentOptions = options;
+
+    // Stocker la session pour accéder au timer
+    if (rmsComponent.session) {
+      this.currentSession = rmsComponent.session;
+    }
+
     try {
+      // S'abonner au timer de la session pour le temps de course
+      if (rmsComponent.session?.timer) {
+        this.timerSubscription = rmsComponent.session.timer.subscribe(
+          (time: number) => {
+            this.currentTime = time;
+            // Mettre à jour uniquement le temps sans recalculer tout
+            this.updateRaceData({
+              mode: options?.mode || 'practice',
+              status: this.currentRaceStatus || 'En cours',
+              time: time,
+              currentLap: this.currentLap,
+              laps: options?.laps || 0
+            });
+          }
+        );
+        this.logger.info('✅ Subscribed to session timer');
+      }
+
+      // S'abonner au nombre de tours actuel
+      if (rmsComponent.session?.currentLap) {
+        this.lapCountSubscription = rmsComponent.session.currentLap.subscribe(
+          (lap: number) => {
+            this.currentLap = lap;
+            this.logger.info('📊 Current lap updated:', lap);
+            // Mettre à jour les données de course avec le nouveau lap
+            this.updateRaceData({
+              mode: options?.mode || 'practice',
+              status: this.currentRaceStatus || 'En cours',
+              time: this.currentTime,
+              currentLap: lap,
+              laps: options?.laps || 0
+            });
+          }
+        );
+        this.logger.info('✅ Subscribed to current lap counter');
+      }
+
+      // S'abonner aux feux de départ du ControlUnit
+      if (rmsComponent.cu?.value) {
+        const cu = rmsComponent.cu.value;
+
+        const start$ = cu.getStart().pipe(distinctUntilChanged()) as Observable<number>;
+        const state$ = cu.getState() as Observable<'disconnected' | 'connecting' | 'connected'>;
+
+        this.startLightsSubscription = combineLatest({
+          startValue: start$,
+          cuState: state$
+        }).pipe(
+          map(({ startValue, cuState }) => {
+            // Même logique que dans race-control.component.ts
+            const lights = startValue == 1 ? 5 : startValue > 1 && startValue < 7 ? startValue - 1 : 0;
+            const blink = startValue >= 8 || cuState !== 'connected';
+            return { lights, blink };
+          })
+        ).subscribe(
+          ({ lights, blink }) => {
+            this.updateRaceData({
+              mode: options?.mode || 'practice',
+              status: this.currentRaceStatus || 'En cours',
+              time: this.currentTime,
+              currentLap: this.currentLap,
+              laps: options?.laps || 0,
+              startLights: lights,
+              startBlink: blink
+            });
+          }
+        );
+        this.logger.info('✅ Subscribed to start lights');
+      }
+
       // S'abonner directement aux items finaux de RMS (données parfaites !)
       let dataCount = 0;
       this.sessionSubscription = rmsComponent.items.subscribe(
@@ -340,7 +431,7 @@ export class WebDisplayService implements OnDestroy {
           this.logger.warn('⚠️ RMS items subscription completed (stream ended)');
         }
       );
-      
+
       this.logger.info('✅ Successfully subscribed to RMS items with error/complete handlers');
     } catch (error) {
       this.logger.error('❌ Failed to subscribe to RMS items:', error);
@@ -362,11 +453,13 @@ export class WebDisplayService implements OnDestroy {
     });
 
     // 1. Race data
+    const raceStatus = this.determineRaceStatus(items, options);
+    this.currentRaceStatus = raceStatus;
     this.updateRaceData({
       mode: options?.mode || 'practice',
-      status: this.determineRaceStatus(items, options),
-      time: options?.time || 0,
-      currentLap: 0, // TODO: Get from session if needed
+      status: raceStatus,
+      time: this.currentTime, // Utiliser le temps du timer
+      currentLap: this.currentLap, // Obtenu via subscription à session.currentLap
       laps: options?.laps || 0
     });
 
@@ -392,7 +485,8 @@ export class WebDisplayService implements OnDestroy {
       hasPaid: item.hasPaid !== undefined ? item.hasPaid : true,
       blocked: item.blocked || false,
       manuallyUnblocked: item.manuallyUnblocked || false,
-      manuallyBlocked: item.manuallyBlocked || false
+      manuallyBlocked: item.manuallyBlocked || false,
+      brakeWear: item.brakeWear !== undefined ? item.brakeWear : 15
     }));
 
     this.updateLeaderboard(leaderboard);
@@ -439,9 +533,12 @@ export class WebDisplayService implements OnDestroy {
   disconnectSession(): void {
     this.logger.info('🔌 Disconnecting session...', {
       hasSubscription: !!this.sessionSubscription,
+      hasTimerSubscription: !!this.timerSubscription,
+      hasStartLightsSubscription: !!this.startLightsSubscription,
+      hasLapCountSubscription: !!this.lapCountSubscription,
       hasCurrentSession: !!this.currentSession
     });
-    
+
     if (this.sessionSubscription) {
       try {
         this.sessionSubscription.unsubscribe();
@@ -452,7 +549,40 @@ export class WebDisplayService implements OnDestroy {
         this.sessionSubscription = undefined; // Force cleanup
       }
     }
-    
+
+    if (this.timerSubscription) {
+      try {
+        this.timerSubscription.unsubscribe();
+        this.timerSubscription = undefined;
+        this.logger.info('✅ Successfully unsubscribed from timer');
+      } catch (error) {
+        this.logger.error('❌ Error unsubscribing from timer:', error);
+        this.timerSubscription = undefined;
+      }
+    }
+
+    if (this.lapCountSubscription) {
+      try {
+        this.lapCountSubscription.unsubscribe();
+        this.lapCountSubscription = undefined;
+        this.logger.info('✅ Successfully unsubscribed from lap counter');
+      } catch (error) {
+        this.logger.error('❌ Error unsubscribing from lap counter:', error);
+        this.lapCountSubscription = undefined;
+      }
+    }
+
+    if (this.startLightsSubscription) {
+      try {
+        this.startLightsSubscription.unsubscribe();
+        this.startLightsSubscription = undefined;
+        this.logger.info('✅ Successfully unsubscribed from start lights');
+      } catch (error) {
+        this.logger.error('❌ Error unsubscribing from start lights:', error);
+        this.startLightsSubscription = undefined;
+      }
+    }
+
     this.currentSession = undefined;
     this.logger.info('🔌 Disconnected race session from Web Display');
   }

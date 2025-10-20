@@ -1,68 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenLap - Race Display</title>
+    <title>HUN RACE - Affichage Course</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body class="theme-dark">
     <div class="container">
-        <!-- Header -->
+        <!-- En-tête -->
         <header class="race-header">
             <div class="header-left">
-                <h1 class="race-title">OpenLap</h1>
-                <div class="race-subtitle">Carrera Digital Race Management</div>
+                <img src="hun-race-logo.png" alt="HUN RACE" class="race-logo">
             </div>
             <div class="header-center">
-                <div class="race-mode" id="raceMode">PRACTICE</div>
-                <div class="race-status" id="raceStatus">STOPPED</div>
+                <div class="race-mode" id="raceMode">ENTRAÎNEMENT</div>
+                <div class="race-status" id="raceStatus">ARRÊTÉ</div>
+            </div>
+            <div class="start-lights" id="startLights">
+                <div class="start-light" data-light="1"></div>
+                <div class="start-light" data-light="2"></div>
+                <div class="start-light" data-light="3"></div>
+                <div class="start-light" data-light="4"></div>
+                <div class="start-light" data-light="5"></div>
             </div>
             <div class="header-right">
-                <div class="race-time" id="raceTime">00:00.000</div>
+                <div class="race-time" id="raceTime">00:00:00</div>
                 <div class="race-info">
-                    <span id="currentLap">Lap 0</span> / <span id="totalLaps">∞</span>
+                    <span id="currentLap">Tour 0</span> / <span id="totalLaps">∞</span>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content -->
+        <!-- Contenu Principal -->
         <main class="main-content">
-            <!-- Leaderboard -->
+            <!-- Classement -->
             <section class="leaderboard-section">
-                <h2 class="section-title">Race Positions</h2>
+                <h2 class="section-title">Classement</h2>
                 <div class="leaderboard" id="leaderboard">
-                    <!-- Leaderboard entries will be populated by JavaScript -->
+                    <!-- Les entrées du classement seront générées par JavaScript -->
                 </div>
             </section>
 
-            <!-- Real-time Info -->
+            <!-- Infos Temps Réel -->
             <aside class="realtime-section">
                 <div class="realtime-panel">
-                    <h3 class="panel-title">Live Timing</h3>
+                    <h3 class="panel-title">Chronométrage Live</h3>
                     <div class="timing-grid" id="timingGrid">
-                        <!-- Real-time data will be populated here -->
+                        <!-- Les données temps réel seront affichées ici -->
                     </div>
                 </div>
 
                 <div class="stats-panel">
-                    <h3 class="panel-title">Race Stats</h3>
+                    <h3 class="panel-title">Statistiques Course</h3>
                     <div class="stats-grid">
                         <div class="stat-item">
-                            <div class="stat-label">Total Laps</div>
+                            <div class="stat-label">Tours Total</div>
                             <div class="stat-value" id="totalLapsCompleted">0</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-label">Fastest Lap</div>
+                            <div class="stat-label">Meilleur Tour</div>
                             <div class="stat-value" id="fastestLap">--:--:---</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-label">Race Duration</div>
+                            <div class="stat-label">Durée Course</div>
                             <div class="stat-value" id="raceDuration">00:00:00</div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-label">Active Cars</div>
+                            <div class="stat-label">Voitures Actives</div>
                             <div class="stat-value" id="activeCars">0</div>
                         </div>
                     </div>
@@ -70,29 +76,29 @@
             </aside>
         </main>
 
-        <!-- WebSocket Info Panel -->
+        <!-- Panneau Info WebSocket -->
         <div id="websocketInfo" class="info-message" style="display: none;">
-            <h4>🚫 WebSocket Server Not Available</h4>
-            <p>The WebSocket server is not running on port 8081. To enable real-time updates:</p>
+            <h4>🚫 Serveur WebSocket Non Disponible</h4>
+            <p>Le serveur WebSocket ne fonctionne pas sur le port 8081. Pour activer les mises à jour temps réel :</p>
             <ol>
-                <li>Open the <strong>OpenLap</strong> mobile app</li>
-                <li>Go to <strong>Settings</strong> → <strong>Web Display</strong></li>
-                <li>Check the <strong>WebSocket Server</strong> status</li>
-                <li>If it shows "Not available", the WebSocket plugin is not installed</li>
+                <li>Ouvrez l'application mobile <strong>OpenLap</strong></li>
+                <li>Allez dans <strong>Paramètres</strong> → <strong>Affichage Web</strong></li>
+                <li>Vérifiez le statut du <strong>Serveur WebSocket</strong></li>
+                <li>S'il affiche "Non disponible", le plugin WebSocket n'est pas installé</li>
             </ol>
-            <p><strong>Note:</strong> WebSocket provides instant updates without delays. When unavailable, race data updates are disabled.</p>
+            <p><strong>Note :</strong> Le WebSocket fournit des mises à jour instantanées sans délai. Quand il est indisponible, les mises à jour des données sont désactivées.</p>
         </div>
 
-        <!-- Footer -->
+        <!-- Pied de page -->
         <footer class="race-footer">
             <div class="connection-status">
                 <div class="status-indicator" id="connectionStatus"></div>
-                <span id="connectionText">Connecting...</span>
+                <span id="connectionText">Connexion...</span>
             </div>
             <div class="footer-info">
-                <span>Last Update: <span id="lastUpdate">--:--:--</span></span>
+                <span>Dernière MAJ : <span id="lastUpdate">--:--:--</span></span>
                 <span class="separator">|</span>
-                <span>Server: <span id="serverInfo">OpenLap Mobile</span></span>
+                <span>Serveur : <span id="serverInfo">OpenLap Mobile</span></span>
             </div>
         </footer>
     </div>

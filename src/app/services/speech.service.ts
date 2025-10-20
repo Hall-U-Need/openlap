@@ -26,7 +26,12 @@ class WebSpeech {
 
   speak(textOrOptions: string | TTSOptions): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const utterance = this['__utterance__'] = new SpeechSynthesisUtterance();
+      // Cancel any previous speech
+      if (this.speech.speaking) {
+        this.speech.cancel();
+      }
+
+      const utterance = new SpeechSynthesisUtterance();
       if (typeof textOrOptions === 'string') {
         utterance.text = textOrOptions;
       } else {
@@ -36,15 +41,39 @@ class WebSpeech {
         utterance.pitch = textOrOptions.pitch;
         utterance.voice = this.getVoiceMap().get(textOrOptions.identifier);
       }
+
+      let resolved = false;
+
+      // Timeout de sécurité: estime la durée basée sur le texte
+      const wordCount = utterance.text.split(' ').length;
+      const estimatedDuration = (wordCount * 400) + 500; // ~400ms par mot + 500ms de marge
+
+      const safetyTimeout = setTimeout(() => {
+        if (!resolved) {
+          console.log('WebSpeech: timeout reached, forcing resolve');
+          resolved = true;
+          resolve();
+        }
+      }, estimatedDuration);
+
       utterance.onend = () => {
-        resolve();
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(safetyTimeout);
+          resolve();
+        }
       };
       utterance.onerror = e => {
-        reject(e);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(safetyTimeout);
+          reject(e);
+        }
       }
       try {
         this.speech.speak(utterance);
       } catch (e) {
+        clearTimeout(safetyTimeout);
         reject(e);
       }
     });
@@ -141,13 +170,23 @@ export class SpeechService {
       this.pending++;
       this.promise = this.promise.then(() => {
         if (--this.pending === 0) {
-          return this.tts.speak({
+          // Timeout de sécurité pour forcer la résolution
+          const wordCount = message.split(' ').length;
+          const estimatedDuration = (wordCount * 600) + 1000; // ~600ms par mot + 1s de marge
+
+          const ttsPromise = this.tts.speak({
             text: message,
             locale: this.locale || 'en-us',
             rate: this.rate,
             pitch: this.pitch,
             identifier: this.voice || null
-          }).then(() => {
+          });
+
+          const timeoutPromise = new Promise<void>((resolve) => {
+            setTimeout(() => resolve(), estimatedDuration);
+          });
+
+          return Promise.race([ttsPromise, timeoutPromise]).then(() => {
             if (this.pending === 0) {
               this.lastMessage = null;
             }
@@ -164,8 +203,6 @@ export class SpeechService {
       }).catch((error) => {
         this.logger.error('Speech error:', error);
       });
-    } else {
-      this.logger.info('Speech duplicate dismissed: ' + message);
     }
   }
 

@@ -408,20 +408,12 @@ export class WebDisplayService implements OnDestroy {
       }
 
       // S'abonner directement aux items finaux de RMS (données parfaites !)
-      let dataCount = 0;
       this.sessionSubscription = rmsComponent.items.subscribe(
         (items: any[]) => {
-          dataCount++;
           if (items && Array.isArray(items)) {
-            this.logger.info(`📊 [${dataCount}] Received PERFECT RMS data:`, {
-              itemsCount: items.length,
-              mode: options?.mode,
-              firstItemThrottle: items[0]?.throttle,
-              timestamp: Date.now()
-            });
             this.updateFromRmsItems(items, options);
           } else {
-            this.logger.warn(`⚠️ [${dataCount}] Received invalid RMS data:`, items);
+            this.logger.warn('⚠️ Received invalid RMS data:', items);
           }
         },
         (error: any) => {
@@ -438,19 +430,8 @@ export class WebDisplayService implements OnDestroy {
     }
   }
 
-  // Transformer les données RMS parfaites en format WebDisplay 
+  // Transformer les données RMS parfaites en format WebDisplay
   private updateFromRmsItems(items: any[], options?: any): void {
-    this.logger.info('🔄 Converting RMS items to WebDisplay format:', {
-      itemsCount: items.length,
-      mode: options?.mode || 'unknown',
-      firstItem: items[0] ? {
-        id: items[0].id,
-        driver: items[0].driver?.name,
-        throttle: items[0].throttle,
-        buttonPressed: items[0].buttonPressed,
-        hasPaid: items[0].hasPaid
-      } : null
-    });
 
     // 1. Race data
     const raceStatus = this.determineRaceStatus(items, options);
@@ -506,8 +487,6 @@ export class WebDisplayService implements OnDestroy {
         sector: entry.pit ? 'PIT' : 'PISTE'
       }))
     });
-
-    this.logger.info('✅ WebDisplay updated with PERFECT RMS data');
   }
 
   private determineRaceStatus(items: any[], options?: any): string {

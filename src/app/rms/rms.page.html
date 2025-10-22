@@ -37,5 +37,5 @@
 </ion-content>
 
 <ion-footer>
-  <race-control [cu]="cu | async" [yellowFlag]="session?.yellowFlag | async" (onYellowFlag)="toggleYellowFlag()"></race-control>
+  <race-control [cu]="cu | async" [yellowFlag]="session?.yellowFlag | async" [canStart]="canStartRace" (onYellowFlag)="toggleYellowFlag()"></race-control>
 </ion-footer>

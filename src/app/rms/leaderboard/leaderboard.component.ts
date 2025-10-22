@@ -58,6 +58,7 @@ export class LeaderboardItem {
   throttle?: number;
   buttonPressed?: boolean;
   hasPaid?: boolean;
+  coinValue?: number; // Montant payé par le joueur
   waitingForPayment?: boolean;
   blocked?: boolean;
   manuallyUnblocked?: boolean;

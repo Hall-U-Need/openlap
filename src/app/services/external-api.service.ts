@@ -23,6 +23,10 @@ export class ExternalApiService {
   private isPollingSubject = new BehaviorSubject<boolean>(false);
   private isConnectedSubject = new BehaviorSubject<boolean>(false);
 
+  // Mémoriser l'état initial des coin_value à la première connexion
+  private initialCoinValues = new Map<number, number>(); // car_id -> coin_value initial
+  private isInitialized = false;
+
   public cars$ = this.carsSubject.asObservable();
   public coinAcceptors$ = this.coinAcceptorsSubject.asObservable();
   public timestamp$ = this.timestampSubject.asObservable();
@@ -62,6 +66,10 @@ export class ExternalApiService {
       return;
     }
 
+    // Réinitialiser l'état à chaque démarrage de polling
+    this.isInitialized = false;
+    this.initialCoinValues.clear();
+
     this.isPollingSubject.next(true);
     this.logger.info('Starting continuous API polling (100ms delay between requests)', { url: this.apiUrl });
 
@@ -96,6 +104,15 @@ export class ExternalApiService {
     return this.http.get<ApiResponse>(this.apiUrl).pipe(
       timeout({ first: this.httpTimeout }),
       tap(response => {
+        // À la première connexion, mémoriser les valeurs initiales
+        if (!this.isInitialized) {
+          this.isInitialized = true;
+          response.cars.forEach(car => {
+            this.initialCoinValues.set(car.car_id, car.coin_value || 0);
+          });
+          this.logger.info('Initial coin values captured:', Array.from(this.initialCoinValues.entries()));
+        }
+
         // Forcer une nouvelle référence pour que combineLatest se redéclenche
         this.carsSubject.next([...response.cars]);
         this.coinAcceptorsSubject.next([...response.coin_acceptors]);
@@ -173,17 +190,50 @@ export class ExternalApiService {
   }
 
   /**
-   * Consomme une pièce d'un monnayeur spécifique
+   * Obtenir la valeur initiale de coin_value pour une voiture
+   */
+  getInitialCoinValue(carId: number): number {
+    return this.initialCoinValues.get(carId) || 0;
+  }
+
+  /**
+   * Calculer la différence entre la valeur actuelle et initiale de coin_value
+   * (montant ajouté pendant la session)
+   */
+  getCoinValueDelta(carId: number): number {
+    const car = this.getCarById(carId);
+    const currentValue = car?.coin_value || 0;
+    const initialValue = this.getInitialCoinValue(carId);
+    return currentValue - initialValue;
+  }
+
+  /**
+   * Marque les pièces comme consommées en synchronisant les valeurs initiales avec les valeurs actuelles
+   * Cela permet de "consommer" les pièces pour les voitures qui ont participé à la course
+   */
+  markCoinsAsConsumed(carIds: number[]): void {
+    carIds.forEach(carId => {
+      const car = this.getCarById(carId);
+      if (car) {
+        const currentValue = car.coin_value || 0;
+        this.initialCoinValues.set(carId, currentValue);
+        this.logger.info(`Coins marked as consumed for car ${carId}. New initial value:`, currentValue);
+      }
+    });
+  }
+
+  /**
+   * Consomme une pièce d'un monnayeur spécifique (OBSOLETE - utiliser markCoinsAsConsumed)
    */
   consumeCoin(coinAcceptorId: number): Observable<any> {
     if (!this.enabled) {
       this.logger.warn('External API is disabled, cannot consume coin');
       return EMPTY;
     }
-    
+
     const url = `${this.baseApiUrl}/consume-coin`;
     const body = { coin_acceptor_id: coinAcceptorId };
-    
+
     return this.http.post<any>(url, body).pipe(
       tap(response => {
         this.logger.info(`Coin consumed for acceptor ${coinAcceptorId}:`, response);

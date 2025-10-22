@@ -234,7 +234,10 @@ class RaceDisplay {
         const entryElement = document.createElement('div');
         entryElement.className = `leaderboard-entry position-${entry.position}`;
         entryElement.dataset.carNumber = entry.car;
-        
+
+        const needsPayment = !entry.manuallyBlocked && !entry.manuallyUnblocked && !entry.hasPaid;
+        const isBlocked = entry.manuallyBlocked || entry.blocked;
+
         entryElement.innerHTML = `
             <div class="position">${entry.position}</div>
             <div class="car-number" style="background-color: ${entry.color}">${entry.car}</div>
@@ -264,6 +267,8 @@ class RaceDisplay {
                 <span class="brake-icon">🔴</span>
                 <span class="brake-value">${entry.brakeWear !== undefined ? entry.brakeWear : 15}</span>
             </div>
+            ${isBlocked ? '<div class="blocked-overlay">Contrôles Désactivés</div>' : ''}
+            ${!isBlocked && needsPayment ? '<div class="payment-overlay">Paiement en attente...</div>' : ''}
         `;
 
         return entryElement;
@@ -315,6 +320,36 @@ class RaceDisplay {
         const carStatus = element.querySelector('.car-status');
 
         let hasChanges = false;
+
+        // Handle blocked overlay
+        const isBlocked = entry.manuallyBlocked || entry.blocked;
+        let blockedOverlay = element.querySelector('.blocked-overlay');
+
+        if (isBlocked && !blockedOverlay) {
+            // Add blocked overlay if needed
+            blockedOverlay = document.createElement('div');
+            blockedOverlay.className = 'blocked-overlay';
+            blockedOverlay.textContent = 'Contrôles Désactivés';
+            element.appendChild(blockedOverlay);
+        } else if (!isBlocked && blockedOverlay) {
+            // Remove blocked overlay if no longer needed
+            blockedOverlay.remove();
+        }
+
+        // Handle payment overlay (only if not blocked)
+        const needsPayment = !entry.manuallyBlocked && !entry.manuallyUnblocked && !entry.hasPaid;
+        let paymentOverlay = element.querySelector('.payment-overlay');
+
+        if (!isBlocked && needsPayment && !paymentOverlay) {
+            // Add payment overlay if needed
+            paymentOverlay = document.createElement('div');
+            paymentOverlay.className = 'payment-overlay';
+            paymentOverlay.textContent = 'Paiement en attente...';
+            element.appendChild(paymentOverlay);
+        } else if ((isBlocked || !needsPayment) && paymentOverlay) {
+            // Remove payment overlay if no longer needed
+            paymentOverlay.remove();
+        }
 
         // Check for changes and update smoothly
         if (position.textContent !== entry.position.toString()) {

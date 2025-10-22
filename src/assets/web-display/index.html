@@ -38,42 +38,27 @@
             <!-- Classement -->
             <section class="leaderboard-section">
                 <h2 class="section-title">Classement</h2>
+                <div class="leaderboard-header">
+                    <div class="header-pos">POS</div>
+                    <div class="header-car">N°</div>
+                    <div class="header-driver">Pilote</div>
+                    <div class="header-laps">Tours</div>
+                    <div class="header-time">Temps</div>
+                    <div class="header-last">Dernier Tour</div>
+                    <div class="header-best">Meilleur Temps</div>
+                    <div class="header-gap">Écart</div>
+                    <div class="header-pits">Pits</div>
+                    <div class="header-fuel">Essence</div>
+                    <div class="header-throttle">Gaz</div>
+                    <div class="header-payment">Paiement</div>
+                    <div class="header-pit-status">Pit</div>
+                    <div class="header-status">État</div>
+                    <div class="header-brake">Freins</div>
+                </div>
                 <div class="leaderboard" id="leaderboard">
                     <!-- Les entrées du classement seront générées par JavaScript -->
                 </div>
             </section>
-
-            <!-- Infos Temps Réel -->
-            <aside class="realtime-section">
-                <div class="realtime-panel">
-                    <h3 class="panel-title">Chronométrage Live</h3>
-                    <div class="timing-grid" id="timingGrid">
-                        <!-- Les données temps réel seront affichées ici -->
-                    </div>
-                </div>
-
-                <div class="stats-panel">
-                    <h3 class="panel-title">Statistiques Course</h3>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-label">Tours Total</div>
-                            <div class="stat-value" id="totalLapsCompleted">0</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Meilleur Tour</div>
-                            <div class="stat-value" id="fastestLap">--:--:---</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Durée Course</div>
-                            <div class="stat-value" id="raceDuration">00:00:00</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Voitures Actives</div>
-                            <div class="stat-value" id="activeCars">0</div>
-                        </div>
-                    </div>
-                </div>
-            </aside>
         </main>
 
         <!-- Panneau Info WebSocket -->

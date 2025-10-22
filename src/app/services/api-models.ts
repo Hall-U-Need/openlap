@@ -5,9 +5,9 @@ export interface ApiCar {
   button_pressed: boolean;
   active: boolean;
   blocked: boolean; // État de blocage de la voiture
-  has_coin: boolean; // La voiture a une pièce
+  coin_value: number; // Montant payé par le joueur (remplace has_coin)
   manually_unblocked: boolean; // La voiture a été débloquée manuellement
-  manually_blocked: boolean; // La voiture a été bloquée manuellement (prioritaire sur has_coin)
+  manually_blocked: boolean; // La voiture a été bloquée manuellement (prioritaire sur coin_value)
   last_seen: number;
   frame_count: number;
   throttle_raw: number;

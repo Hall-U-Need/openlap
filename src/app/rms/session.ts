@@ -65,11 +65,13 @@ export class Session {
   timer: Observable<number>;
   started = false;
   stopped = false;
+  manuallyStopped = false; // Arrêt manuel par l'utilisateur
 
   private mask: number;
   private active = 0;
 
   private realMask: number = null;
+  private coinsConsumed = false; // Pour ne consommer qu'une seule fois
 
   // TODO: move settings handling/combine to race-control!
   constructor(public cu: ControlUnit, public options: RaceOptions, private carSync?: CarSyncService) {
@@ -101,6 +103,7 @@ export class Session {
     const pit = cu.getPit();
 
     this.mask = (options.auto ? 0 : 1 << 6) | (options.pace ? 0 : 1 << 7);
+
     if (options.drivers) {
       this.mask |= createMask(options.drivers, 6);
       this.grid = this.createGrid(timer, fuel, pit, ~this.mask & 0xff);
@@ -122,7 +125,16 @@ export class Session {
         return newgrid;
       }, []),
       map((cars: Array<Entry>) => {
-        const ranks = cars.filter(car => !!car);
+        const ranks = cars.filter(car => {
+          // Filtrer les voitures inexistantes
+          if (!car) return false;
+          // Filtrer les voitures masquées par le paiement
+          if (this.isCarMaskedByPayment(car.id)) {
+            console.log('Filtering out car', car.id, 'because unpaid (mask:', this.unpaidMask.toString(2).padStart(8, '0'), ')');
+            return false;
+          }
+          return true;
+        });
         ranks.sort(compare);
         return ranks;
       })
@@ -188,25 +200,12 @@ export class Session {
   }
 
   start() {
-    // Consommer les pièces pour toutes les voitures participantes avant de démarrer
-    if (this.carSync) {
-      this.carSync.consumeCoinsForParticipatingCars().subscribe({
-        next: (results) => {
-          console.log('Coins consumed for participating cars:', results);
-          this.started = true;
-        },
-        error: (error) => {
-          console.error('Error consuming coins, starting race anyway:', error);
-          this.started = true;
-        }
-      });
-    } else {
-      this.started = true;
-    }
+    this.started = true;
   }
 
   stop() {
     this.stopped = true;
+    this.manuallyStopped = true; // Marquer comme arrêt manuel
     this.finish();
   }
 
@@ -221,6 +220,27 @@ export class Session {
     }
     this.cu.setMask(this.mask);
     this.yellowFlag.next(!value);
+  }
+
+  private unpaidMask = 0;
+
+  /**
+   * Appliquer le masque des voitures non payées
+   * À appeler au début de la séquence de feux
+   */
+  applyUnpaidMask(unpaidMask: number) {
+    this.unpaidMask = unpaidMask;
+    this.mask |= unpaidMask;
+    this.cu.setMask(this.mask);
+    console.log('Unpaid mask applied to session:', this.mask.toString(2).padStart(8, '0'), 'binary =', this.mask);
+    console.log('Unpaid mask stored:', this.unpaidMask.toString(2).padStart(8, '0'));
+  }
+
+  /**
+   * Vérifier si une voiture est masquée par le masque de paiement
+   */
+  isCarMaskedByPayment(carId: number): boolean {
+    return (this.unpaidMask & (1 << carId)) !== 0;
   }
 
   private createGrid(
@@ -350,6 +370,7 @@ export class Session {
   }
 
   private finish(id?: number) {
+    console.log('finish() called with id:', id, 'finished.value:', this.finished.value);
     const mask = this.mask;
     this.mask |= (~this.active & 0xff);
     if (id !== undefined) {
@@ -361,20 +382,47 @@ export class Session {
     if (id !== undefined) {
       this.cu.setFinished(id);
     }
-    
-    // Bloquer toutes les voitures actives à la fin de la course
-    if (this.carSync && this.stopped) {
+
+    // Quand la course est complètement terminée : consommer les pièces et bloquer les voitures
+    if (this.carSync && id === undefined) {
+      console.log('Race fully finished');
+
+      // Consommer les pièces seulement si ce n'est pas un arrêt manuel
+      if (!this.manuallyStopped) {
+        console.log('Marking coins as consumed for all participating cars');
+
+        // Récupérer les IDs des voitures qui ont participé (non masquées par le paiement)
+        const participatingCarIds: number[] = [];
+        for (let i = 0; i < 6; i++) {
+          if ((this.unpaidMask & (1 << i)) === 0) {
+            participatingCarIds.push(i + 1); // car_id est 1-based
+          }
+        }
+
+        // Marquer les pièces comme consommées
+        if (participatingCarIds.length > 0) {
+          this.carSync.markCoinsAsConsumed(participatingCarIds);
+        }
+      } else {
+        console.log('Race manually stopped - coins NOT consumed');
+      }
+
+      // Bloquer toutes les voitures actives
+      console.log('Blocking all active cars');
       this.carSync.blockAllActiveCars().subscribe({
-        next: (results) => {
-          console.log('All active cars blocked:', results);
+        next: (blockResults) => {
+          console.log('All active cars blocked:', blockResults);
         },
         error: (error) => {
           console.error('Error blocking cars:', error);
         }
       });
     }
-    
-    this.finished.next(true);
+
+    // Marquer la course comme terminée seulement si c'est la fin complète (pas juste une voiture)
+    if (id === undefined) {
+      this.finished.next(true);
+    }
   }
 
   private isFinished(laps: number) {

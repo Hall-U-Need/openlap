@@ -11,7 +11,7 @@ import { distinctUntilChanged, filter, map, mergeMap, pairwise, share, skipWhile
 
 import { AppSettings, Options, RaceOptions } from '../app-settings';
 import { ControlUnit } from '../carrera';
-import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService } from '../services';
+import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService, I18nAlertService } from '../services';
 import { CarSyncService } from '../services/car-sync.service';
 import { WebDisplayService } from '../services/web-display.service';
 
@@ -53,6 +53,8 @@ export class RmsPage implements OnDestroy, OnInit {
 
   apiConnected: Observable<boolean>;
 
+  canStartRace: boolean = true; // Indique si on peut démarrer la course (assez de participants)
+
   private subscriptions: Subscription;
 
   private backButtonSubscription: Subscription;
@@ -64,8 +66,8 @@ export class RmsPage implements OnDestroy, OnInit {
   constructor(public cu: ControlUnitService, private app: AppService,
     private logger: LoggingService, private settings: AppSettings, private speech: SpeechService,
     private popover: PopoverController, private translate: TranslateService, route: ActivatedRoute,
-    private carSync: CarSyncService, private externalApi: ExternalApiService, 
-    private webDisplay: WebDisplayService)
+    private carSync: CarSyncService, private externalApi: ExternalApiService,
+    private webDisplay: WebDisplayService, private alert: I18nAlertService)
   {
     const mode = route.snapshot.paramMap.get('mode');
     switch (mode) {
@@ -105,11 +107,6 @@ export class RmsPage implements OnDestroy, OnInit {
     // Observable pour le statut de connexion à l'API externe
     this.apiConnected = this.externalApi.isConnected$;
 
-    // Debug: Log les changements de statut API
-    this.apiConnected.subscribe(connected => {
-      this.logger.info('🔔 API Connection status changed:', connected ? 'CONNECTED ✅' : 'DISCONNECTED ❌');
-    });
-
     // flag for older Android versions that require Location services and support USB OTG connections
     this.legacyAndroid = app.isAndroid() && app.isCordova() ?
       app.getDeviceInfo().then(device => (device.version < '12')) :
@@ -127,14 +124,30 @@ export class RmsPage implements OnDestroy, OnInit {
     this.subscription.add(this.settings.getOptions().subscribe(options => {
       this.options = options;
     }));
+
+    // Surveiller les changements de l'External API pour mettre à jour canStartRace
+    if (this.externalApi.isEnabled()) {
+      this.subscription.add(
+        this.externalApi.cars$.subscribe(() => {
+          this.updateCanStartRace();
+        })
+      );
+    }
+  }
+
+  private updateCanStartRace() {
+    const unpaidMask = this.calculateUnpaidCarsMask();
+    const paidCarsCount = this.countPaidCars(unpaidMask);
+    this.canStartRace = paidCarsCount >= 2;
+    this.logger.info(`Can start race: ${this.canStartRace} (${paidCarsCount} paid cars)`);
   }
 
   startSession(cu: ControlUnit, options: RaceOptions) {
     const session = new Session(cu, options, this.carSync);
-    
+
     // Garder la session pour RMS (affichage natif)
     this.session = session;
-    
+
     // WebDisplay sera reconnecté après que this.items soit configuré
 
     this.lapcount = session.currentLap.pipe(
@@ -293,8 +306,11 @@ export class RmsPage implements OnDestroy, OnInit {
           // Obtenir les données en temps réel depuis l'API
           const carInfo = apiCars.find(car => car.car_id === item.id + 1); // item.id est 0-based, API car_id est 1-based
           const coinInfo = coinAcceptors.find(coin => coin.id === item.id + 1);
-          const hasPaid = carInfo ? carInfo.has_coin : (coinInfo ? coinInfo.coin_count > 0 : false);
-          
+
+          // Calculer le delta (montant ajouté pendant la session)
+          const coinValueDelta = this.externalApi.getCoinValueDelta(item.id + 1);
+          const hasPaid = coinValueDelta > 0;
+
           return Object.assign({}, item, {
             position: index,
             driver: drivers[item.id],
@@ -303,6 +319,7 @@ export class RmsPage implements OnDestroy, OnInit {
             throttle: carInfo ? carInfo.accelerator_percent : 0,
             buttonPressed: carInfo ? carInfo.button_pressed : false,
             hasPaid: hasPaid,
+            coinValue: coinValueDelta,
             waitingForPayment: !hasPaid && carInfo && carInfo.active,
             blocked: carInfo ? carInfo.blocked : false,
             manuallyUnblocked: carInfo ? carInfo.manually_unblocked : false,
@@ -365,7 +382,27 @@ export class RmsPage implements OnDestroy, OnInit {
 
     if (options.mode != 'practice') {
       const start = cu.getStart();
+
+      // Appliquer le masque quand la séquence de feux démarre (transition 1 -> 2)
+      start.pipe(
+        pairwise(),
+        filter(([prev, curr]) => prev === 1 && curr === 2),
+        take(1)
+      ).subscribe(() => {
+        this.logger.info('Light sequence starting (1->2) - applying payment mask');
+        const unpaidMask = this.calculateUnpaidCarsMask();
+
+        // Appliquer le masque des voitures non payées
+        if (unpaidMask > 0) {
+          this.logger.info('Masking unpaid cars:', unpaidMask.toString(2).padStart(8, '0'));
+          session.applyUnpaidMask(unpaidMask);
+        } else {
+          this.logger.info('All cars paid or API disabled - no masking');
+        }
+      });
+
       start.pipe(take(1)).toPromise().then(value => {
+        this.logger.info('Initial start value:', value);
         if (value === 0) {
           cu.toggleStart();
         }
@@ -447,7 +484,14 @@ export class RmsPage implements OnDestroy, OnInit {
 
   restartSession() {
     if (this.session) {
+      // Déconnecter le service d'affichage web avant de redémarrer
+      this.webDisplay.disconnectSession();
+
+      // Créer une nouvelle session
       this.session = this.startSession(this.session.cu, this.session.options);
+
+      // Reconnecter le service d'affichage web avec la nouvelle session
+      this.webDisplay.connectToRmsData(this, this.session.options);
     }
   }
 
@@ -498,5 +542,67 @@ export class RmsPage implements OnDestroy, OnInit {
   // see https://github.com/ngx-translate/core/issues/330
   private getTranslations(key: string, params?: Object) {
     return this.translate.stream(key, params);
+  }
+
+  /**
+   * Calculer le masque des voitures qui n'ont pas payé
+   * Retourne un masque de bits pour exclure les voitures non payées
+   * Si l'External API n'est pas activée ou non connectée, retourne 0 (aucun masque)
+   */
+  private calculateUnpaidCarsMask(): number {
+    // Si l'External API n'est pas activée, ne pas masquer les voitures
+    if (!this.externalApi.isEnabled()) {
+      this.logger.info('External API disabled - no payment masking applied');
+      return 0;
+    }
+
+    // Vérifier si l'API est connectée (valeurs initiales capturées)
+    let isConnected = false;
+    this.externalApi.isConnected$.pipe(take(1)).subscribe(connected => {
+      isConnected = connected;
+    });
+
+    if (!isConnected) {
+      this.logger.info('External API not connected yet - no payment masking applied');
+      return 0;
+    }
+
+    let mask = 0;
+
+    // Pour chaque contrôleur (0-5, car IDs 1-6)
+    for (let controllerId = 0; controllerId < 6; controllerId++) {
+      const carId = controllerId + 1; // API utilise des IDs 1-based
+      const coinValueDelta = this.externalApi.getCoinValueDelta(carId);
+
+      // Si le joueur n'a pas payé (delta <= 0), masquer ce contrôleur
+      if (coinValueDelta <= 0) {
+        mask |= (1 << controllerId);
+      }
+    }
+
+    this.logger.info('Unpaid cars mask calculated:', mask.toString(2).padStart(8, '0'), 'binary, decimal:', mask);
+    return mask;
+  }
+
+  /**
+   * Compter le nombre de voitures qui ont payé
+   * @param unpaidMask Masque des voitures non payées
+   * @returns Nombre de voitures payantes
+   */
+  private countPaidCars(unpaidMask: number): number {
+    // Si l'External API n'est pas activée, toutes les voitures peuvent participer
+    if (!this.externalApi.isEnabled()) {
+      return 6; // On considère que toutes les voitures peuvent participer
+    }
+
+    let paidCount = 0;
+    for (let controllerId = 0; controllerId < 6; controllerId++) {
+      // Si le bit n'est PAS dans le masque unpaid, la voiture a payé
+      if ((unpaidMask & (1 << controllerId)) === 0) {
+        paidCount++;
+      }
+    }
+
+    return paidCount;
   }
 }

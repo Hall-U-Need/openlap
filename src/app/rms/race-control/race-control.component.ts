@@ -46,6 +46,8 @@ export class RaceControlComponent  {
 
   @Input() yellowFlag: boolean;
 
+  @Input() canStart: boolean = true;
+
   @Output() onYellowFlag = new EventEmitter();
 
   constructor() {}

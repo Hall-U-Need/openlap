@@ -126,16 +126,19 @@ export class CarSyncService {
   }
 
   /**
-   * Vérifier si une voiture a payé (a inséré une pièce)
+   * Vérifier si une voiture a payé (a inséré une pièce pendant la session)
    */
   hasCarPaid(carId: number): boolean {
-    const car = this.externalApi.getCarById(carId);
-    if (car && car.has_coin !== undefined) {
-      return car.has_coin;
-    }
-    // Fallback vers l'ancienne méthode si has_coin n'est pas disponible
-    const coinAcceptor = this.externalApi.getCoinAcceptorById(carId);
-    return coinAcceptor ? coinAcceptor.coin_count > 0 : false;
+    // Utiliser le delta pour vérifier si une pièce a été ajoutée pendant la session
+    const coinValueDelta = this.externalApi.getCoinValueDelta(carId);
+    return coinValueDelta > 0;
+  }
+
+  /**
+   * Obtenir le montant payé par une voiture (delta depuis le début de la session)
+   */
+  getCarCoinValue(carId: number): number {
+    return this.externalApi.getCoinValueDelta(carId);
   }
 
   /**
@@ -166,11 +169,18 @@ export class CarSyncService {
   }
 
   /**
-   * Consomme les pièces pour toutes les voitures participantes au démarrage de la course
+   * Marque les pièces comme consommées pour les voitures spécifiées
+   */
+  markCoinsAsConsumed(carIds: number[]): void {
+    this.externalApi.markCoinsAsConsumed(carIds);
+  }
+
+  /**
+   * Consomme les pièces pour toutes les voitures participantes au démarrage de la course (OBSOLETE)
    */
   consumeCoinsForParticipatingCars(): Observable<any[]> {
     const participatingCars = this.getActiveCars().filter(car => this.canCarParticipate(car.car_id));
-    
+
     if (participatingCars.length === 0) {
       this.logger.info('No participating cars found for coin consumption');
       return new Observable(observer => {
@@ -180,8 +190,8 @@ export class CarSyncService {
     }
 
     this.logger.info(`Consuming coins for ${participatingCars.length} participating cars (excluding manually blocked)`);
-    
-    const consumptionRequests = participatingCars.map(car => 
+
+    const consumptionRequests = participatingCars.map(car =>
       this.externalApi.consumeCoin(car.car_id)
     );
 

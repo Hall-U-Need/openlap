@@ -10,8 +10,10 @@ import { Observable } from 'rxjs';
 
 import { AppSettings, Driver } from '../app-settings';
 import { AppService, ControlUnitService, LoggingService, SpeechService } from '../services';
+import { CarImagesService } from '../services/car-images.service';
 
 import { ColorComponent } from './color.component';
+import { CarImageComponent } from './car-image.component';
 
 import { ControlUnitButton } from '../carrera';
 
@@ -28,12 +30,13 @@ export class DriversPage implements OnDestroy, OnInit {
 
   constructor(
     private app: AppService,
-    private cu: ControlUnitService, 
+    private cu: ControlUnitService,
     private logger: LoggingService,
     private settings: AppSettings,
     private mc: ModalController,
     private speech: SpeechService,
-    private translate: TranslateService) 
+    private translate: TranslateService,
+    public carImagesService: CarImagesService)
   {
     this.orientation = app.orientation;
   }
@@ -80,13 +83,32 @@ export class DriversPage implements OnDestroy, OnInit {
 
   chooseColor(id: number) {
     return this.mc.create({
-      component: ColorComponent, 
+      component: ColorComponent,
       componentProps: {id: id, driver: this.drivers[id]}
     }).then(modal => {
       modal.onDidDismiss().then(detail => {
         if (detail.data) {
           this.drivers[id].color = detail.data;
         }
+      });
+      modal.present();
+    });
+  }
+
+  chooseCarImage(id: number) {
+    return this.mc.create({
+      component: CarImageComponent,
+      componentProps: {id: id, driver: this.drivers[id]}
+    }).then(modal => {
+      modal.onDidDismiss().then(detail => {
+        // detail.data peut être une chaîne (filename) ou undefined (aucune image)
+        // On vérifie que le modal a retourné quelque chose (pas annulé)
+        if (detail.role === 'backdrop' || detail.role === 'gesture') {
+          // Modal fermé sans sélection, ne rien faire
+          return;
+        }
+        // Mettre à jour l'image (peut être undefined pour supprimer)
+        this.drivers[id].carImage = detail.data;
       });
       modal.present();
     });

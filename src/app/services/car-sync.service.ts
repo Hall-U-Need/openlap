@@ -156,9 +156,17 @@ export class CarSyncService {
     const isActive = this.isCarActive(carId);
     const hasPaid = this.hasCarPaid(carId);
     const isManuallyBlocked = car ? car.manually_blocked : false;
-    
+
     // Une voiture peut participer si elle est active, a payé ET n'est pas bloquée manuellement
     return isActive && hasPaid && !isManuallyBlocked;
+  }
+
+  /**
+   * Vérifier si une voiture a été débloquée manuellement
+   */
+  isCarManuallyUnblocked(carId: number): boolean {
+    const car = this.externalApi.getCarById(carId);
+    return car ? car.manually_unblocked : false;
   }
 
   /**

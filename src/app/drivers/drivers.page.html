@@ -22,6 +22,12 @@
           {{id + 1}}
         </outline>
       </ion-button>
+      <ion-thumbnail slot="start" *ngIf="driver.carImage" (click)="chooseCarImage(id)">
+        <img [src]="carImagesService.getImagePath(driver.carImage)" [alt]="driver.name || 'Voiture'" />
+      </ion-thumbnail>
+      <ion-button slot="start" *ngIf="!driver.carImage" fill="outline" (click)="chooseCarImage(id)">
+        <ion-icon name="car-sport-outline"></ion-icon>
+      </ion-button>
       <ion-input clearInput
         [ngModel]="driver.name"
         (ngModelChange)="driver.code = getCode(driver.name = $event, id)"

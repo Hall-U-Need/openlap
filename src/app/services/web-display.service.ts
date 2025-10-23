@@ -30,6 +30,7 @@ interface WebDisplayData {
     bestLap: string;
     gap: string;
     color: string;
+    carImage?: string;
     fuel: number;
     pit: boolean;
     finished: boolean;
@@ -445,30 +446,59 @@ export class WebDisplayService implements OnDestroy {
     });
 
     // 2. Leaderboard (conversion directe des items RMS)
-    const leaderboard = items.map((item, index) => ({
-      position: index + 1,
-      car: item.id + 1, // RMS uses 0-based, display uses 1-based
-      driver: item.driver?.name || `Voiture ${item.id + 1}`,
-      laps: item.laps || 0,
-      lastLap: this.formatLapTime(item.last?.[0]) || '--:--:---',
-      bestLap: this.formatLapTime(item.best?.[0]) || '--:--:---',
-      gap: index === 0 ? '-' : '--', // TODO: Calculate gap if needed
-      color: item.driver?.color || this.getCarColor(item.id),
-      fuel: item.fuel || 15,
-      pit: item.pit || false,
-      finished: item.finished || false,
-      pits: item.pits || 0,
-      refuel: item.refuel || false,
-      time: item.time || 0,
-      // Données temps réel directement depuis RMS !
-      throttle: item.throttle || 0,
-      buttonPressed: item.buttonPressed || false,
-      hasPaid: item.hasPaid !== undefined ? item.hasPaid : true,
-      blocked: item.blocked || false,
-      manuallyUnblocked: item.manuallyUnblocked || false,
-      manuallyBlocked: item.manuallyBlocked || false,
-      brakeWear: item.brakeWear !== undefined ? item.brakeWear : 15
-    }));
+    const leaderboard = items.map((item, index) => {
+      let gap = '-';
+      if (index > 0) {
+        const leader = items[0];
+        const lapDiff = (leader.laps || 0) - (item.laps || 0);
+
+        if (lapDiff > 0) {
+          // Écart en tours
+          gap = `+${lapDiff} tour${lapDiff > 1 ? 's' : ''}`;
+        } else if (lapDiff === 0) {
+          // Même tour, calculer l'écart en temps
+          const timeDiff = (item.time || 0) - (leader.time || 0);
+          if (timeDiff > 0) {
+            gap = `+${this.formatGapTime(timeDiff)}`;
+          } else {
+            gap = '--';
+          }
+        } else {
+          gap = '--';
+        }
+      }
+
+      // Debug: log les voitures terminées
+      if (item.finished) {
+        console.log(`🏁 Car ${item.id + 1} finished - blocked:${item.blocked}, manuallyBlocked:${item.manuallyBlocked}`);
+      }
+
+      return {
+        position: index + 1,
+        car: item.id + 1, // RMS uses 0-based, display uses 1-based
+        driver: item.driver?.name || `Voiture ${item.id + 1}`,
+        laps: item.laps || 0,
+        lastLap: this.formatLapTime(item.last?.[0]) || '--:--:---',
+        bestLap: this.formatLapTime(item.best?.[0]) || '--:--:---',
+        gap: gap,
+        color: item.driver?.color || this.getCarColor(item.id),
+        carImage: item.driver?.carImage,
+        fuel: item.fuel || 15,
+        pit: item.pit || false,
+        finished: item.finished || false,
+        pits: item.pits || 0,
+        refuel: item.refuel || false,
+        time: item.time || 0,
+        // Données temps réel directement depuis RMS !
+        throttle: item.throttle || 0,
+        buttonPressed: item.buttonPressed || false,
+        hasPaid: item.hasPaid !== undefined ? item.hasPaid : true,
+        blocked: item.blocked || false,
+        manuallyUnblocked: item.manuallyUnblocked || false,
+        manuallyBlocked: item.manuallyBlocked || false,
+        brakeWear: item.brakeWear !== undefined ? item.brakeWear : 15
+      };
+    });
 
     this.updateLeaderboard(leaderboard);
 
@@ -490,8 +520,31 @@ export class WebDisplayService implements OnDestroy {
   }
 
   private determineRaceStatus(items: any[], options?: any): string {
-    // TODO: Determine race status based on items/options
-    return 'En cours';
+    // Vérifier si la session est disponible
+    if (!this.currentSession) {
+      return 'stopped';
+    }
+
+    // Vérifier si la session est marquée comme terminée
+    if (this.currentSession.finished && this.currentSession.finished.value === true) {
+      return 'finished';
+    }
+
+    // Vérifier si toutes les voitures actives ont terminé (en mode course avec tours limités)
+    if (options?.mode === 'race' && options?.laps > 0 && items.length > 0) {
+      const allFinished = items.every(item => item.finished);
+      if (allFinished) {
+        return 'finished';
+      }
+    }
+
+    // Vérifier si la session a démarré
+    if (this.currentSession.started) {
+      return 'running';
+    }
+
+    // Si pas encore démarrée mais session active, on est sur la grille
+    return 'ready';
   }
 
   private parseLapTime(lapTimeString: string): number {
@@ -575,12 +628,27 @@ export class WebDisplayService implements OnDestroy {
   // Formater le temps de tour en minutes:secondes.millisecondes
   private formatLapTime(timeMs: number): string {
     if (!timeMs || timeMs <= 0) return '--:--.---';
-    
+
     const minutes = Math.floor(timeMs / 60000);
     const seconds = Math.floor((timeMs % 60000) / 1000);
     const milliseconds = timeMs % 1000;
-    
+
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+  }
+
+  private formatGapTime(timeMs: number): string {
+    if (!timeMs || timeMs <= 0) return '0.000';
+
+    const seconds = Math.floor(timeMs / 1000);
+    const milliseconds = timeMs % 1000;
+
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${minutes}:${secs.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+    }
+
+    return `${seconds}.${milliseconds.toString().padStart(3, '0')}`;
   }
 
   // Calculer l'écart avec le leader
@@ -870,13 +938,29 @@ export class WebDisplayService implements OnDestroy {
 
   private startWebSocketServer(): void {
     this.logger.info('🚀 Starting WebSocket server...');
-    
+
     if (this.platform.is('cordova') && (window as any).cordova?.plugins?.wsserver) {
       const wsserver = (window as any).cordova.plugins.wsserver;
       this.wsServer = wsserver; // Store reference for cleanup
-      
+
       this.connectedClients.clear();
-      this.startWebSocketServerInternal(wsserver);
+
+      // Tenter d'arrêter tout serveur existant d'abord
+      this.logger.info('🔄 Stopping any existing WebSocket server...');
+      wsserver.stop(
+        () => {
+          this.logger.info('✅ Previous server stopped, starting new one...');
+          // Attendre un peu avant de redémarrer
+          setTimeout(() => {
+            this.startWebSocketServerInternal(wsserver);
+          }, 500);
+        },
+        () => {
+          // Pas de serveur à arrêter, démarrer directement
+          this.logger.info('ℹ️ No previous server to stop, starting...');
+          this.startWebSocketServerInternal(wsserver);
+        }
+      );
     } else {
       this.logger.warn('⚠️ WebSocket server plugin not available');
       this.logger.info('Available cordova plugins:', Object.keys((window as any).cordova?.plugins || {}));
@@ -884,22 +968,46 @@ export class WebDisplayService implements OnDestroy {
     }
   }
 
+  private wsServerRetryCount = 0;
+  private maxWsServerRetries = 3;
+
   private startWebSocketServerInternal(wsserver: any): void {
     wsserver.start(this.wsPort, {
           onFailure: (addr: string, port: number, reason: string) => {
             this.logger.error('❌ WebSocket server failed on port', port, ':', reason);
-            
+
             // Clear error message for port conflicts
             if (reason.includes('port') || reason.includes('bind') || reason.includes('address') || reason.includes('EADDRINUSE')) {
               this.logger.error('🚫 Port', port, 'is already in use by another application');
-              this.logger.error('💡 Solutions:');
-              this.logger.error('   - Close other applications using port', port);
-              this.logger.error('   - Restart the OpenLap app');
-              this.logger.error('   - Reboot your device if the problem persists');
+
+              // Tenter de forcer l'arrêt et redémarrer
+              if (this.wsServerRetryCount < this.maxWsServerRetries) {
+                this.wsServerRetryCount++;
+                this.logger.info(`🔄 Retry ${this.wsServerRetryCount}/${this.maxWsServerRetries}: Force stopping and restarting...`);
+
+                wsserver.stop(
+                  () => {
+                    setTimeout(() => {
+                      this.startWebSocketServerInternal(wsserver);
+                    }, 1000);
+                  },
+                  () => {
+                    setTimeout(() => {
+                      this.startWebSocketServerInternal(wsserver);
+                    }, 1000);
+                  }
+                );
+              } else {
+                this.logger.error('💡 Solutions:');
+                this.logger.error('   - Close other applications using port', port);
+                this.logger.error('   - Restart the OpenLap app');
+                this.logger.error('   - Reboot your device if the problem persists');
+                this.wsServerRetryCount = 0; // Reset for next time
+              }
             } else {
               this.logger.error('❌ WebSocket server startup failed:', reason);
             }
-            
+
             this.logger.error('⚠️ Web Display will not receive real-time updates');
             this.logger.error('📱 External displays may not work correctly');
           },
@@ -927,6 +1035,7 @@ export class WebDisplayService implements OnDestroy {
         }, (addr: string, port: number) => {
           this.logger.info('✅ WebSocket server started on', `${addr}:${port}`);
           this.wsPort = port;
+          this.wsServerRetryCount = 0; // Reset retry counter on success
         });
   }
 

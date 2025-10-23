@@ -101,6 +101,7 @@ export interface Driver {
   code?: string;
   color: string;
   brake?: number;
+  carImage?: string;
 }
 
 export class RaceOptions {

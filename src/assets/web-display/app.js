@@ -92,12 +92,13 @@ class RaceDisplay {
     handleDataUpdate(data) {
         this.currentData = data;
         this.lastUpdate = new Date();
-        
+        this.isRaceFinished = data.race?.status === 'finished';
+
         // Throttle updates to avoid excessive DOM manipulation
         if (this.updateThrottle) {
             clearTimeout(this.updateThrottle);
         }
-        
+
         this.updateThrottle = setTimeout(() => {
             this.updateRaceHeader(data.race);
             this.updateLeaderboard(data.leaderboard);
@@ -119,7 +120,7 @@ class RaceDisplay {
         // Traduction des statuts
         const statusTranslations = {
             'stopped': 'ARRÊTÉ',
-            'ready': 'PRÊT',
+            'ready': 'EN PRÉPARATION',
             'running': 'EN COURS',
             'finished': 'TERMINÉE',
             'paused': 'PAUSE',
@@ -175,13 +176,13 @@ class RaceDisplay {
         console.log('🔄 updateLeaderboard called with', leaderboardData.length, 'entries');
         const container = this.elements.leaderboard;
         const existingEntries = Array.from(container.children);
-        
+
         console.log('📊 Found', existingEntries.length, 'existing entries in DOM');
-        
-        // Create a map of existing entries by car number
+
+        // Create a map of existing entries by car number (stored in dataset)
         const existingMap = new Map();
         existingEntries.forEach(entry => {
-            const carNum = entry.querySelector('.car-number')?.textContent;
+            const carNum = entry.dataset.carNumber;
             console.log('🔍 Found existing car number:', carNum);
             if (carNum) existingMap.set(parseInt(carNum), entry);
         });
@@ -190,13 +191,13 @@ class RaceDisplay {
 
         // Track which entries we need to keep
         const toKeep = new Set();
-        
+
         leaderboardData.forEach((entry, index) => {
             const existingEntry = existingMap.get(entry.car);
             toKeep.add(entry.car);
-            
+
             console.log(`🎯 Processing car ${entry.car}: ${existingEntry ? 'UPDATE' : 'CREATE'} - ${entry.driver}`);
-            
+
             if (existingEntry) {
                 // Update existing entry smoothly
                 this.updateLeaderboardEntry(existingEntry, entry, index);
@@ -205,7 +206,7 @@ class RaceDisplay {
                 const entryElement = this.createLeaderboardEntry(entry);
                 entryElement.classList.add('entry-new');
                 container.appendChild(entryElement);
-                
+
                 // Trigger animation after DOM insertion
                 setTimeout(() => {
                     entryElement.classList.remove('entry-new');
@@ -216,7 +217,7 @@ class RaceDisplay {
 
         // Remove entries that are no longer needed
         existingEntries.forEach(entry => {
-            const carNum = entry.querySelector('.car-number')?.textContent;
+            const carNum = entry.dataset.carNumber;
             if (carNum && !toKeep.has(parseInt(carNum))) {
                 entry.style.opacity = '0';
                 entry.style.transform = 'translateX(-100%)';
@@ -236,22 +237,24 @@ class RaceDisplay {
         entryElement.dataset.carNumber = entry.car;
 
         const needsPayment = !entry.manuallyBlocked && !entry.manuallyUnblocked && !entry.hasPaid;
-        const isBlocked = entry.manuallyBlocked || entry.blocked;
+        // Si la course est terminée, ne pas afficher l'overlay de blocage
+        const isBlocked = !this.isRaceFinished && (entry.manuallyBlocked || entry.blocked);
+
+        const carImageContent = entry.carImage
+            ? `<img src="cars/${entry.carImage}" alt="Car ${entry.car}">`
+            : '';
 
         entryElement.innerHTML = `
             <div class="position">${entry.position}</div>
             <div class="car-number" style="background-color: ${entry.color}">${entry.car}</div>
+            <div class="car-image">${carImageContent}</div>
             <div class="driver-name">${entry.driver || `Car ${entry.car}`}</div>
             <div class="lap-count">${entry.laps}</div>
             <div class="time">${this.formatTime(entry.time || 0)}</div>
+            <div class="gap">${entry.gap || '--'}</div>
             <div class="last-lap">${entry.lastLap || '--:--:---'}</div>
             <div class="best-lap">${entry.bestLap || '--:--:---'}</div>
-            <div class="gap">${entry.gap || '--'}</div>
             <div class="pits">${entry.pits || 0}</div>
-            <div class="fuel-gauge">
-                <div class="fuel-fill" style="width: ${Math.max(0, Math.min(100, (entry.fuel || 0) * 100 / 15))}%"></div>
-                <span class="fuel-text">${entry.fuel || 0}</span>
-            </div>
             <div class="throttle-status">
                 <div class="throttle-bar">
                     <div class="throttle-fill" style="height: ${Math.max(0, Math.min(100, entry.throttle || 0))}%"></div>
@@ -260,13 +263,15 @@ class RaceDisplay {
                     ${entry.buttonPressed ? '●' : '○'}
                 </div>
             </div>
-            <div class="payment-status">${this.getPaymentStatus(entry)}</div>
-            <div class="pit-status">${this.getPitStatus(entry)}</div>
-            <div class="car-status">${this.getCarStatus(entry)}</div>
             <div class="brake-wear ${this.getBrakeWearClass(entry.brakeWear !== undefined ? entry.brakeWear : 15)}">
                 <span class="brake-icon">🔴</span>
                 <span class="brake-value">${entry.brakeWear !== undefined ? entry.brakeWear : 15}</span>
             </div>
+            <div class="fuel-gauge">
+                <div class="fuel-fill" style="width: ${Math.max(0, Math.min(100, (entry.fuel || 0) * 100 / 15))}%"></div>
+                <span class="fuel-text">${entry.fuel || 0}</span>
+            </div>
+            <div class="car-status">${this.getCombinedStatus(entry)}</div>
             ${isBlocked ? '<div class="blocked-overlay">Contrôles Désactivés</div>' : ''}
             ${!isBlocked && needsPayment ? '<div class="payment-overlay">Paiement en attente...</div>' : ''}
         `;
@@ -282,6 +287,15 @@ class RaceDisplay {
     getCarStatus(entry) {
         if (entry.finished) return '🏁';
         if (entry.pit) return entry.refuel ? '⛽' : '🔧';
+        return '';
+    }
+
+    getCombinedStatus(entry) {
+        // Priorité: Fini > Au stand > Rien
+        if (entry.finished) return '🏁';
+        if (entry.pit) {
+            return entry.refuel ? '⛽ REFUEL' : '🔧 PIT';
+        }
         return '';
     }
 
@@ -304,6 +318,7 @@ class RaceDisplay {
     updateLeaderboardEntry(element, entry, index) {
         const position = element.querySelector('.position');
         const carNumber = element.querySelector('.car-number');
+        const carImage = element.querySelector('.car-image');
         const driverName = element.querySelector('.driver-name');
         const lapCount = element.querySelector('.lap-count');
         const lastLap = element.querySelector('.last-lap');
@@ -315,14 +330,44 @@ class RaceDisplay {
         const fuelText = element.querySelector('.fuel-text');
         const throttleFill = element.querySelector('.throttle-fill');
         const buttonIndicator = element.querySelector('.button-indicator');
-        const paymentStatus = element.querySelector('.payment-status');
-        const pitStatus = element.querySelector('.pit-status');
         const carStatus = element.querySelector('.car-status');
 
         let hasChanges = false;
 
-        // Handle blocked overlay
-        const isBlocked = entry.manuallyBlocked || entry.blocked;
+        // Update car number (always present)
+        if (carNumber.style.backgroundColor !== entry.color) {
+            carNumber.style.backgroundColor = entry.color;
+        }
+        if (carNumber.textContent !== entry.car.toString()) {
+            carNumber.textContent = entry.car;
+        }
+
+        // Update car image (container always exists)
+        if (entry.carImage) {
+            const img = carImage.querySelector('img');
+            if (!img) {
+                // Add image if it doesn't exist
+                carImage.innerHTML = `<img src="cars/${entry.carImage}" alt="Car ${entry.car}">`;
+                hasChanges = true;
+            } else {
+                // Update image src if changed
+                const currentSrc = img.getAttribute('src');
+                const newSrc = `cars/${entry.carImage}`;
+                if (currentSrc !== newSrc) {
+                    img.src = newSrc;
+                    hasChanges = true;
+                }
+            }
+        } else {
+            // Remove image if no carImage
+            if (carImage.innerHTML !== '') {
+                carImage.innerHTML = '';
+                hasChanges = true;
+            }
+        }
+
+        // Handle blocked overlay - ne pas afficher si la course est terminée
+        const isBlocked = !this.isRaceFinished && (entry.manuallyBlocked || entry.blocked);
         let blockedOverlay = element.querySelector('.blocked-overlay');
 
         if (isBlocked && !blockedOverlay) {
@@ -421,24 +466,11 @@ class RaceDisplay {
             // Don't set hasChanges = true for button updates
         }
 
-        // Update payment status
-        const newPaymentStatus = this.getPaymentStatus(entry);
-        if (paymentStatus.textContent !== newPaymentStatus) {
-            paymentStatus.textContent = newPaymentStatus;
-            hasChanges = true;
-        }
 
-        // Update pit status
-        const newPitStatus = this.getPitStatus(entry);
-        if (pitStatus.textContent !== newPitStatus) {
-            pitStatus.textContent = newPitStatus;
-            hasChanges = true;
-        }
-
-        // Update car status
-        const newCarStatus = this.getCarStatus(entry);
-        if (carStatus.textContent !== newCarStatus) {
-            carStatus.textContent = newCarStatus;
+        // Update combined status (pit + car status)
+        const newCombinedStatus = this.getCombinedStatus(entry);
+        if (carStatus.textContent !== newCombinedStatus) {
+            carStatus.textContent = newCombinedStatus;
             hasChanges = true;
         }
 
@@ -503,7 +535,12 @@ class RaceDisplay {
 
     updateRealtime(realtimeData) {
         const container = this.elements.timingGrid;
-        
+
+        // Si l'élément n'existe pas (section supprimée), ignorer
+        if (!container) {
+            return;
+        }
+
         if (!realtimeData.cars || realtimeData.cars.length === 0) {
             container.innerHTML = '';
             return;
@@ -609,6 +646,11 @@ class RaceDisplay {
     }
 
     updateStats(data) {
+        // Section stats supprimée - ignorer si les éléments n'existent pas
+        if (!this.elements.totalLapsCompleted) {
+            return;
+        }
+
         // Calculate total laps completed
         const totalLaps = data.leaderboard.reduce((sum, entry) => sum + entry.laps, 0);
         this.updateStatValue(this.elements.totalLapsCompleted, totalLaps);
@@ -630,10 +672,12 @@ class RaceDisplay {
     }
 
     updateStatValue(element, newValue) {
+        if (!element) return;
+
         if (element.textContent !== newValue.toString()) {
             element.classList.add('updating');
             element.textContent = newValue;
-            
+
             setTimeout(() => {
                 element.classList.remove('updating');
             }, 300);
@@ -739,11 +783,14 @@ class RaceDisplay {
                     
                     if (message.type === 'race_data' && message.data) {
                         console.log('✅ Processing race_data with', message.data.leaderboard?.length || 0, 'leaderboard entries');
-                        // Debug: Log first entry's data to check throttle/button/paid
+                        // Debug: Log first entry's data to check throttle/button/paid/carImage
                         if (message.data.leaderboard && message.data.leaderboard.length > 0) {
                             const firstEntry = message.data.leaderboard[0];
                             console.log('🔍 First entry debug:', {
                                 car: firstEntry.car,
+                                driver: firstEntry.driver,
+                                carImage: firstEntry.carImage,
+                                color: firstEntry.color,
                                 throttle: firstEntry.throttle,
                                 buttonPressed: firstEntry.buttonPressed,
                                 hasPaid: firstEntry.hasPaid,

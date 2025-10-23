@@ -72,6 +72,7 @@ export class Session {
 
   private realMask: number = null;
   private coinsConsumed = false; // Pour ne consommer qu'une seule fois
+  private autoBlockedCars = new Set<number>(); // Track les voitures bloquées automatiquement à la fin
 
   // TODO: move settings handling/combine to race-control!
   constructor(public cu: ControlUnit, public options: RaceOptions, private carSync?: CarSyncService) {
@@ -374,7 +375,24 @@ export class Session {
     const mask = this.mask;
     this.mask |= (~this.active & 0xff);
     if (id !== undefined) {
-      this.mask |= (1 << id);
+      // Ne bloquer la voiture que si :
+      // 1. Elle n'a pas été débloquée manuellement
+      // 2. Elle n'a pas déjà été bloquée automatiquement (pour éviter de rebloquer après un déblocage)
+      const carId = id + 1; // id est 0-based, car_id est 1-based
+      const isManuallyUnblocked = this.carSync && this.carSync.isCarManuallyUnblocked(carId);
+      const alreadyAutoBlocked = this.autoBlockedCars.has(id);
+
+      if (!isManuallyUnblocked && !alreadyAutoBlocked) {
+        this.mask |= (1 << id);
+        this.autoBlockedCars.add(id); // Marquer comme ayant été bloquée automatiquement
+        console.log(`🔒 Car ${carId} auto-blocked on finish (first time)`);
+      } else if (isManuallyUnblocked) {
+        // Si la voiture est débloquée manuellement, retirer le blocage du mask
+        this.mask &= ~(1 << id);
+        console.log(`✅ Car ${carId} is manually unblocked, removing from mask`);
+      } else if (alreadyAutoBlocked) {
+        console.log(`⏭️ Car ${carId} already auto-blocked once, skipping`);
+      }
     }
     if (mask != this.mask) {
       this.cu.setMask(this.mask);

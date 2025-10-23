@@ -167,10 +167,10 @@ export class RmsPage implements OnDestroy, OnInit {
       const observables = drivers.map((obj, index) => {
         const code = obj.code || '#' + (index + 1);
         if (obj.name) {
-          return of({name: obj.name, code: code, color: obj.color, brake: obj.brake});
+          return of({name: obj.name, code: code, color: obj.color, brake: obj.brake, carImage: obj.carImage});
         } else {
           return this.getTranslations('Driver {{number}}', {number: index + 1}).pipe(map((name: string) => {
-            return {name: name, code: code, color: obj.color, brake: obj.brake}
+            return {name: name, code: code, color: obj.color, brake: obj.brake, carImage: obj.carImage}
           }));
         }
       });

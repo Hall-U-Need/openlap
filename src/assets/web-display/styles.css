@@ -388,6 +388,11 @@ body {
     text-shadow: none !important;
 }
 
+.leaderboard-entry.position-1 .brake-icon-svg,
+.leaderboard-entry.position-1 .fuel-icon-svg {
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
 .leaderboard-entry.position-2 {
     background: linear-gradient(135deg, #e8e8e8 0%, #ffffff 25%, #e8e8e8 50%, #ffffff 75%, #e8e8e8 100%);
     color: #000000;
@@ -410,6 +415,11 @@ body {
     text-shadow: none !important;
 }
 
+.leaderboard-entry.position-2 .brake-icon-svg,
+.leaderboard-entry.position-2 .fuel-icon-svg {
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
 .leaderboard-entry.position-3 {
     background: linear-gradient(135deg, #ff8c42 0%, #ffb347 25%, #ff8c42 50%, #ffb347 75%, #ff8c42 100%);
     color: #000000;
@@ -430,6 +440,11 @@ body {
 .leaderboard-entry.position-3 .blocked-overlay {
     color: #ffffff !important;
     text-shadow: none !important;
+}
+
+.leaderboard-entry.position-3 .brake-icon-svg,
+.leaderboard-entry.position-3 .fuel-icon-svg {
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
 }
 
 .position {
@@ -490,40 +505,19 @@ body {
     color: var(--text-secondary);
 }
 
-/* Fuel Gauge - Modern Halluneed Style */
+/* Fuel Gauge - SVG Icon Style */
 .fuel-gauge {
-    position: relative;
-    width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.fuel-icon-svg {
+    width: 24px;
     height: 24px;
-    background: rgba(15, 12, 41, 0.6);
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    overflow: hidden;
-    text-align: center;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.fuel-fill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    background: linear-gradient(90deg, #ff3366 0%, #ffcc00 50%, #00ff88 100%);
-    border-radius: 10px;
-    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
-}
-
-.fuel-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: white;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-    z-index: 1;
+    transition: filter 0.3s ease;
 }
 
 /* Pit Status */
@@ -554,36 +548,33 @@ body {
     font-size: 0.8rem;
 }
 
-/* Throttle Status */
+/* Throttle Status - Circular Gauge */
 .throttle-status {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
+    padding: 4px;
 }
 
-.throttle-bar {
-    width: 20px;
+.throttle-gauge {
+    width: 50px;
     height: 30px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-    border: 1px solid var(--border-color);
-    position: relative;
-    overflow: hidden;
+    transition: transform 0.2s ease;
 }
 
 .throttle-fill {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    background: linear-gradient(180deg, #ff4444 0%, #ffaa00 50%, #00ff88 100%);
-    /* transition: height 0.2s ease; */
-    border-radius: 3px;
+    transition: d 0.2s ease, stroke 0.3s ease;
+}
+
+.throttle-text {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
 }
 
 .button-indicator {
     font-size: 1rem;
-    font-weight: 700;
+    transition: color 0.2s ease;
 }
 
 .button-indicator.pressed {
@@ -614,56 +605,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    padding: 4px 8px;
+    padding: 4px;
     border-radius: 4px;
-    transition: all 0.3s ease;
 }
 
-.brake-wear .brake-icon {
-    font-size: 1rem;
-}
-
-.brake-wear.brake-good {
-    background: rgba(0, 160, 57, 0.2);
-    border: 2px solid var(--hun-green);
-    color: var(--hun-green-light);
-}
-
-.brake-wear.brake-good .brake-icon {
-    color: var(--hun-green);
-}
-
-.brake-wear.brake-worn {
-    background: rgba(238, 156, 8, 0.2);
-    border: 2px solid var(--hun-orange);
-    color: var(--hun-yellow);
-}
-
-.brake-wear.brake-worn .brake-icon {
-    color: var(--hun-orange);
-}
-
-.brake-wear.brake-critical {
-    background: rgba(254, 70, 55, 0.2);
-    border: 2px solid var(--hun-red);
-    color: #ffffff;
-    animation: brake-critical-pulse 1.5s ease-in-out infinite;
-}
-
-.brake-wear.brake-critical .brake-icon {
-    color: var(--hun-red);
-}
-
-@keyframes brake-critical-pulse {
-    0%, 100% {
-        box-shadow: 0 0 5px rgba(254, 70, 55, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 15px rgba(254, 70, 55, 0.8);
-    }
+.brake-icon-svg {
+    width: 24px;
+    height: 24px;
+    transition: filter 0.3s ease;
 }
 
 /* Real-time Section - Hidden (not used) */
@@ -868,18 +817,18 @@ body {
         font-size: 0.75rem;
     }
 
-    .fuel-gauge {
-        width: 60px;
+    .fuel-icon-svg {
+        width: 20px;
         height: 20px;
     }
 
-    .fuel-text {
-        font-size: 0.65rem;
+    .throttle-gauge {
+        width: 40px;
+        height: 24px;
     }
 
-    .throttle-bar {
-        width: 18px;
-        height: 28px;
+    .throttle-text {
+        font-size: 10px;
     }
 
     .button-indicator {
@@ -887,12 +836,12 @@ body {
     }
 
     .brake-wear {
-        font-size: 0.75rem;
-        padding: 3px 6px;
+        padding: 3px;
     }
 
-    .brake-icon {
-        font-size: 0.85rem;
+    .brake-icon-svg {
+        width: 20px;
+        height: 20px;
     }
 
     .car-status {
@@ -1009,18 +958,18 @@ body {
         font-size: 0.95rem;
     }
 
-    .fuel-gauge {
-        width: 75px;
-        height: 26px;
+    .fuel-icon-svg {
+        width: 28px;
+        height: 28px;
     }
 
-    .fuel-text {
-        font-size: 0.8rem;
+    .throttle-gauge {
+        width: 55px;
+        height: 33px;
     }
 
-    .throttle-bar {
-        width: 22px;
-        height: 34px;
+    .throttle-text {
+        font-size: 13px;
     }
 
     .button-indicator {
@@ -1090,9 +1039,17 @@ body {
         height: 36px;
     }
     
-    .throttle-bar {
-        width: 15px;
-        height: 20px;
+    .throttle-gauge {
+        width: 35px;
+        height: 21px;
+    }
+
+    .throttle-text {
+        font-size: 8px;
+    }
+
+    .button-indicator {
+        font-size: 0.8rem;
     }
 }
 
@@ -1123,9 +1080,9 @@ body {
         display: none;
     }
 
-    .fuel-gauge {
-        width: 25px;
-        height: 12px;
+    .fuel-icon-svg {
+        width: 16px;
+        height: 16px;
     }
 }
 

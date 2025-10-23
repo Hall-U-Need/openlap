@@ -447,7 +447,7 @@ export class WebDisplayService implements OnDestroy {
 
     // 2. Leaderboard (conversion directe des items RMS)
     const leaderboard = items.map((item, index) => {
-      let gap = '-';
+      let gap = '--';
       if (index > 0) {
         const leader = items[0];
         const lapDiff = (leader.laps || 0) - (item.laps || 0);

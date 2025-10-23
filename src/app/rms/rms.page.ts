@@ -307,9 +307,9 @@ export class RmsPage implements OnDestroy, OnInit {
           const carInfo = apiCars.find(car => car.car_id === item.id + 1); // item.id est 0-based, API car_id est 1-based
           const coinInfo = coinAcceptors.find(coin => coin.id === item.id + 1);
 
-          // Calculer le delta (montant ajouté pendant la session)
-          const coinValueDelta = this.externalApi.getCoinValueDelta(item.id + 1);
-          const hasPaid = coinValueDelta > 0;
+          // Utiliser le compteur persistant (survit aux resets du contrôleur)
+          const creditCounter = this.externalApi.getCreditCounter(item.id + 1);
+          const hasPaid = creditCounter > 0;
 
           return Object.assign({}, item, {
             position: index,
@@ -319,7 +319,7 @@ export class RmsPage implements OnDestroy, OnInit {
             throttle: carInfo ? carInfo.accelerator_percent : 0,
             buttonPressed: carInfo ? carInfo.button_pressed : false,
             hasPaid: hasPaid,
-            coinValue: coinValueDelta,
+            coinValue: creditCounter,
             waitingForPayment: !hasPaid && carInfo && carInfo.active,
             blocked: carInfo ? carInfo.blocked : false,
             manuallyUnblocked: carInfo ? carInfo.manually_unblocked : false,
@@ -572,10 +572,10 @@ export class RmsPage implements OnDestroy, OnInit {
     // Pour chaque contrôleur (0-5, car IDs 1-6)
     for (let controllerId = 0; controllerId < 6; controllerId++) {
       const carId = controllerId + 1; // API utilise des IDs 1-based
-      const coinValueDelta = this.externalApi.getCoinValueDelta(carId);
+      const creditCounter = this.externalApi.getCreditCounter(carId);
 
-      // Si le joueur n'a pas payé (delta <= 0), masquer ce contrôleur
-      if (coinValueDelta <= 0) {
+      // Si le joueur n'a pas payé (compteur <= 0), masquer ce contrôleur
+      if (creditCounter <= 0) {
         mask |= (1 << controllerId);
       }
     }

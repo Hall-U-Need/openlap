@@ -244,6 +244,9 @@ class RaceDisplay {
             ? `<img src="cars/${entry.carImage}" alt="Car ${entry.car}">`
             : '';
 
+        // Texte noir pour les positions 1-3 (podium), blanc pour le reste
+        const throttleTextColor = (entry.position >= 1 && entry.position <= 3) ? 'black' : 'white';
+
         entryElement.innerHTML = `
             <div class="position">${entry.position}</div>
             <div class="car-number" style="background-color: ${entry.color}">${entry.car}</div>
@@ -256,20 +259,29 @@ class RaceDisplay {
             <div class="best-lap">${entry.bestLap || '--:--:---'}</div>
             <div class="pits">${entry.pits || 0}</div>
             <div class="throttle-status">
-                <div class="throttle-bar">
-                    <div class="throttle-fill" style="height: ${Math.max(0, Math.min(100, entry.throttle || 0))}%"></div>
-                </div>
+                <svg class="throttle-gauge" viewBox="0 0 50 30" xmlns="http://www.w3.org/2000/svg">
+                    <path class="throttle-bg" d="M 5 25 A 20 20 0 0 1 45 25" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4" stroke-linecap="round"/>
+                    <path class="throttle-fill"
+                        d="${this.getThrottleArcPath(entry.throttle || 0)}"
+                        fill="none"
+                        stroke="${this.getThrottleColorRGB(entry.throttle || 0)}"
+                        stroke-width="4"
+                        stroke-linecap="round"/>
+                    <text class="throttle-text" x="25" y="28" text-anchor="middle" fill="${throttleTextColor}" font-size="10" font-weight="bold">${Math.round(entry.throttle || 0)}%</text>
+                </svg>
                 <div class="button-indicator ${entry.buttonPressed ? 'pressed' : 'released'}">
                     ${entry.buttonPressed ? '●' : '○'}
                 </div>
             </div>
-            <div class="brake-wear ${this.getBrakeWearClass(entry.brakeWear !== undefined ? entry.brakeWear : 15)}">
-                <span class="brake-icon">🔴</span>
-                <span class="brake-value">${entry.brakeWear !== undefined ? entry.brakeWear : 15}</span>
+            <div class="brake-wear">
+                <svg class="brake-icon-svg" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="${this.getBrakeColorRGB(entry.brakeWear !== undefined ? entry.brakeWear : 15)}" d="M151.1,9.7L131.8,29c6.6,10.4,13.2,20.7,19.8,31.1c14.7,14.7,29.4,29.4,44,44c10.4,6.6,20.7,13.2,31.1,19.8l19.3-19.3l-34.8-60.1L151.1,9.7L151.1,9.7z M235,129.5c1.1,30.2-9.8,60.8-32.9,83.8c-43.9,43.9-115.2,43.9-159.2,0C-1,169.4-1,98.1,43,54.1C66.1,31,96.8,20.1,127.1,21.3l-4.9,4.9l24.4,38.2l0.7,0.7c14.7,14.7,29.4,29.4,44,44l0.7,0.7l38.3,24.4L235,129.5L235,129.5z M46.4,134.3c2-1.6,2.3-4.5,0.7-6.5l-15.6-19.4c-1.6-2-4.5-2.3-6.5-0.7l-0.1,0c-2,1.6-2.3,4.5-0.7,6.5l15.6,19.4C41.4,135.6,44.4,136,46.4,134.3L46.4,134.3z M89.7,66.1L99,42c0.9-2.4-0.3-5.1-2.6-6l-0.1,0c-2.4-0.9-5.1,0.3-6,2.6L81,62.7c-0.9,2.4,0.3,5.1,2.6,6l0.1,0C86.1,69.7,88.8,68.5,89.7,66.1z M197.3,138.7l16.3,20.3c1.6,2,4.5,2.3,6.5,0.7l0.1-0.1c2-1.6,2.3-4.5,0.7-6.5l-16.4-20.3c-1.6-2-4.5-2.3-6.5-0.7l-0.1,0C196,133.8,195.7,136.7,197.3,138.7z M155.4,201.6l-9.5,24.4c-0.9,2.4,0.3,5.1,2.6,6l0.1,0c2.4,0.9,5.1-0.3,6-2.6l9.5-24.4c0.9-2.4-0.3-5.1-2.6-6l-0.1,0C159,198,156.3,199.2,155.4,201.6z M80.9,196l-26,4c-2.5,0.4-4.2,2.7-3.9,5.3l0,0.1c0.4,2.5,2.7,4.3,5.3,3.9l26-4c2.5-0.4,4.2-2.7,3.9-5.3l0-0.1C85.7,197.3,83.4,195.5,80.9,196z M153.5,102.7c-2.3-2.3-6-2.3-8.3,0c-2.3,2.3-2.3,6,0,8.3c2.3,2.3,6,2.3,8.3,0C155.8,108.8,155.8,105,153.5,102.7L153.5,102.7z M111.2,91.4c-3.1,0.8-5,4.1-4.2,7.2c0.8,3.1,4.1,5,7.2,4.1c3.1-0.8,5-4.1,4.2-7.2C117.6,92.4,114.4,90.6,111.2,91.4L111.2,91.4z M80.3,122.4c-0.8,3.1,1,6.4,4.1,7.2c3.1,0.8,6.4-1,7.2-4.2c0.8-3.1-1-6.4-4.2-7.2C84.3,117.4,81.1,119.3,80.3,122.4L80.3,122.4z M91.6,164.7c2.3,2.3,6,2.3,8.3,0c2.3-2.3,2.3-6,0-8.3c-2.3-2.3-6-2.3-8.3,0C89.3,158.7,89.3,162.4,91.6,164.7L91.6,164.7z M133.9,176c3.1-0.8,5-4.1,4.1-7.2c-0.8-3.1-4-5-7.2-4.2c-3.1,0.8-5,4.1-4.2,7.2C127.6,175,130.8,176.9,133.9,176L133.9,176z M164.9,145.1c0.8-3.1-1-6.4-4.1-7.2c-3.1-0.8-6.4,1-7.2,4.1c-0.8,3.1,1,6.4,4.2,7.2C160.8,150,164.1,148.2,164.9,145.1L164.9,145.1z M167.3,88.9c-12.2-12.2-28.3-18.4-44.4-18.4c-16.1,0-32.1,6.1-44.4,18.4c-12.3,12.3-18.4,28.3-18.4,44.4c0,16.1,6.1,32.1,18.4,44.4c12.2,12.2,28.3,18.4,44.4,18.4c16,0,32.1-6.1,44.4-18.4c12.3-12.3,18.4-28.3,18.4-44.4C185.6,117.2,179.5,101.1,167.3,88.9L167.3,88.9z M173.2,133.2c0,12.9-4.9,25.7-14.7,35.6c-9.8,9.8-22.7,14.7-35.5,14.7c-12.9,0-25.7-4.9-35.5-14.7c-9.8-9.8-14.7-22.7-14.7-35.6c0-12.9,4.9-25.7,14.7-35.5C97.2,87.9,110,83,122.9,83c12.9,0,25.7,4.9,35.5,14.7C168.3,107.5,173.2,120.4,173.2,133.2L173.2,133.2z M105.3,116.4c-9.5,9.5-9.5,25,0,34.6c9.5,9.5,25,9.5,34.6,0c9.5-9.5,9.5-25,0-34.6C130.3,106.9,114.8,106.9,105.3,116.4z"/>
+                </svg>
             </div>
             <div class="fuel-gauge">
-                <div class="fuel-fill" style="width: ${Math.max(0, Math.min(100, (entry.fuel || 0) * 100 / 15))}%"></div>
-                <span class="fuel-text">${entry.fuel || 0}</span>
+                <svg class="fuel-icon-svg" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="${this.getFuelColorRGB(entry.fuel || 0)}" d="M145.5,10.8c-6.2,1.3-9.4,3.4-21.7,14.2c-6.2,5.5-12.2,10.6-13.4,11.3c-3.8,2.5-7.1,3.2-15,3.2c-4.4,0-7.5,0.2-8.3,0.6c-1.1,0.5-1.4,0.2-7.1-5.3c-3.2-3.2-6.4-5.9-6.9-6.1c-2.8-0.9-3.4-0.4-19.1,15.3L39.1,59.1v2c0,2,0.1,2.1,6.5,8.6l6.5,6.6l-1,1.2l-1,1.2v71c0,70.4,0,71.1,1,74.5c2.1,7.7,8,14.8,15.2,18.4c7,3.4,3.7,3.3,67.3,3.3c63.4,0,60.3,0.1,67.1-3.2c8.1-4,14.2-11.9,15.9-20.6c0.4-2,0.5-27.5,0.4-95.9l-0.1-93.1l-1.2-3.4c-3.5-9.6-12.1-17.2-21.8-19.2C189.1,9.7,150,9.8,145.5,10.8z M191,31.4c1.5,1.5,1.6,1.8,1.4,3.5c-0.1,1.2-0.7,2.3-1.4,3.1l-1.2,1.2l-16,0.1c-8.8,0.1-16.5,0-17.1-0.1c-3.4-0.8-4.5-5.6-2-8.1l1.3-1.3h16.7h16.7L191,31.4z M112,124.2l21.6,21.6l21.6-21.6c21.4-21.4,21.6-21.5,23.4-21.5c3.4,0,5.9,3.3,4.8,6.3c-0.3,0.7-9.7,10.5-21.7,22.5l-21.2,21.2l21.2,21.2c14.7,14.7,21.3,21.7,21.7,22.7c0.4,1.2,0.3,1.8-0.4,3.2c-1,2.2-2.6,3-4.9,2.7c-1.7-0.2-3.3-1.7-23.2-21.6l-21.3-21.3l-21.1,21c-11.6,11.6-21.6,21.3-22.1,21.6c-1.8,0.9-3.7,0.6-5.3-0.8c-1.3-1.2-1.5-1.7-1.5-3.5v-2.1l21.6-21.6l21.5-21.5l-21-21c-11.5-11.5-21.3-21.6-21.7-22.3c-1.6-3,0.9-6.7,4.6-6.7C90.4,102.7,90.5,102.7,112,124.2z"/>
+                </svg>
             </div>
             <div class="car-status">${this.getCombinedStatus(entry)}</div>
             ${isBlocked ? '<div class="blocked-overlay">Contrôles Désactivés</div>' : ''}
@@ -315,6 +327,108 @@ class RaceDisplay {
         return 'brake-critical';
     }
 
+    getBrakeColorRGB(brakeWear) {
+        // Dégradé du vert au rouge basé sur l'usure (15 = vert neuf, 0 = rouge critique)
+        // Normaliser entre 0 et 1
+        const normalized = Math.max(0, Math.min(15, brakeWear)) / 15;
+
+        // Interpoler entre rouge (0) et vert clair (15)
+        // Rouge HUN: #fe4637 (254, 70, 55)
+        // Vert clair HUN: #8ce06b (140, 224, 107) - green-light
+        const redStart = { r: 254, g: 70, b: 55 };
+        const greenEnd = { r: 140, g: 224, b: 107 };
+
+        // Interpolation linéaire RGB
+        const r = Math.round(redStart.r + (greenEnd.r - redStart.r) * normalized);
+        const g = Math.round(redStart.g + (greenEnd.g - redStart.g) * normalized);
+        const b = Math.round(redStart.b + (greenEnd.b - redStart.b) * normalized);
+
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    getFuelColorRGB(fuel) {
+        // Dégradé du rouge au vert basé sur le niveau d'essence (15 = plein, 0 = vide)
+        // Normaliser entre 0 et 1
+        const normalized = Math.max(0, Math.min(15, fuel)) / 15;
+
+        // Interpoler entre rouge (0) et vert clair (15)
+        // Rouge HUN: #fe4637 (254, 70, 55)
+        // Vert clair HUN: #8ce06b (140, 224, 107) - green-light
+        const redStart = { r: 254, g: 70, b: 55 };
+        const greenEnd = { r: 140, g: 224, b: 107 };
+
+        // Interpolation linéaire RGB
+        const r = Math.round(redStart.r + (greenEnd.r - redStart.r) * normalized);
+        const g = Math.round(redStart.g + (greenEnd.g - redStart.g) * normalized);
+        const b = Math.round(redStart.b + (greenEnd.b - redStart.b) * normalized);
+
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    getThrottleColorRGB(throttle) {
+        // Dégradé pour l'accélérateur
+        // 0-70% : vert
+        // 70-75% : vert à jaune/orange (zone d'avertissement)
+        // 75-100% : orange à rouge (zone critique)
+        const percentage = Math.max(0, Math.min(100, throttle));
+
+        // Vert clair HUN: #8ce06b (140, 224, 107)
+        // Orange: #ff8c42 (255, 140, 66)
+        // Rouge HUN: #fe4637 (254, 70, 55)
+
+        if (percentage <= 70) {
+            // 0-70% : Vert pur
+            return 'rgb(140, 224, 107)';
+        } else if (percentage <= 75) {
+            // 70-75% : Vert → Orange
+            const normalized = (percentage - 70) / 5; // 0 à 1
+            const greenStart = { r: 140, g: 224, b: 107 };
+            const orangeEnd = { r: 255, g: 140, b: 66 };
+
+            const r = Math.round(greenStart.r + (orangeEnd.r - greenStart.r) * normalized);
+            const g = Math.round(greenStart.g + (orangeEnd.g - greenStart.g) * normalized);
+            const b = Math.round(greenStart.b + (orangeEnd.b - greenStart.b) * normalized);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        } else {
+            // 75-100% : Orange → Rouge
+            const normalized = (percentage - 75) / 25; // 0 à 1
+            const orangeStart = { r: 255, g: 140, b: 66 };
+            const redEnd = { r: 254, g: 70, b: 55 };
+
+            const r = Math.round(orangeStart.r + (redEnd.r - orangeStart.r) * normalized);
+            const g = Math.round(orangeStart.g + (redEnd.g - orangeStart.g) * normalized);
+            const b = Math.round(orangeStart.b + (redEnd.b - orangeStart.b) * normalized);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+    }
+
+    getThrottleArcPath(throttle) {
+        // Semi-cercle de gauche (0%) à droite (100%)
+        const percentage = Math.max(0, Math.min(100, throttle));
+
+        if (percentage === 0) {
+            return 'M 5 25'; // Pas d'arc si 0%
+        }
+
+        const angle = (percentage / 100) * Math.PI; // 0 à PI (180 degrés)
+        const radius = 20;
+        const centerX = 25;
+        const centerY = 25;
+
+        const startX = 5; // Point de départ à gauche
+        const startY = 25;
+
+        // Calculer le point final en suivant l'arc
+        const endX = centerX - radius * Math.cos(angle);
+        const endY = centerY - radius * Math.sin(angle);
+
+        const largeArcFlag = 0; // Toujours le petit arc pour un semi-cercle
+
+        return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX.toFixed(2)} ${endY.toFixed(2)}`;
+    }
+
     updateLeaderboardEntry(element, entry, index) {
         const position = element.querySelector('.position');
         const carNumber = element.querySelector('.car-number');
@@ -326,10 +440,6 @@ class RaceDisplay {
         const gap = element.querySelector('.gap');
         const time = element.querySelector('.time');
         const pits = element.querySelector('.pits');
-        const fuelFill = element.querySelector('.fuel-fill');
-        const fuelText = element.querySelector('.fuel-text');
-        const throttleFill = element.querySelector('.throttle-fill');
-        const buttonIndicator = element.querySelector('.button-indicator');
         const carStatus = element.querySelector('.car-status');
 
         let hasChanges = false;
@@ -442,28 +552,63 @@ class RaceDisplay {
             hasChanges = true;
         }
 
-        // Update fuel gauge
-        const fuelPercentage = Math.max(0, Math.min(100, (entry.fuel || 0) * 100 / 15));
-        if (fuelFill.style.width !== `${fuelPercentage}%`) {
-            fuelFill.style.width = `${fuelPercentage}%`;
-            fuelText.textContent = entry.fuel || 0;
-            hasChanges = true;
+        // Update fuel gauge - changer la couleur du SVG
+        const fuelIconSvg = element.querySelector('.fuel-icon-svg path');
+        if (fuelIconSvg) {
+            const fuelValue = entry.fuel || 0;
+            const newFuelColor = this.getFuelColorRGB(fuelValue);
+
+            if (fuelIconSvg.getAttribute('fill') !== newFuelColor) {
+                fuelIconSvg.setAttribute('fill', newFuelColor);
+                hasChanges = true;
+            }
         }
 
-        // Update throttle (but don't mark as significant change)
-        const throttlePercentage = Math.max(0, Math.min(100, entry.throttle || 0));
-        if (throttleFill.style.height !== `${throttlePercentage}%`) {
-            throttleFill.style.height = `${throttlePercentage}%`;
-            // Don't set hasChanges = true for throttle updates
-        }
+        // Update throttle gauge SVG
+        const throttleStatus = element.querySelector('.throttle-status');
+        if (throttleStatus) {
+            const throttlePercentage = Math.max(0, Math.min(100, entry.throttle || 0));
+            const throttleGauge = throttleStatus.querySelector('.throttle-gauge');
+            const buttonIndicator = throttleStatus.querySelector('.button-indicator');
 
-        // Update button status (but don't mark as significant change)
-        const buttonClass = entry.buttonPressed ? 'pressed' : 'released';
-        const buttonSymbol = entry.buttonPressed ? '●' : '○';
-        if (!buttonIndicator.classList.contains(buttonClass)) {
-            buttonIndicator.className = `button-indicator ${buttonClass}`;
-            buttonIndicator.textContent = buttonSymbol;
-            // Don't set hasChanges = true for button updates
+            if (throttleGauge) {
+                const throttleFillPath = throttleGauge.querySelector('.throttle-fill');
+                const throttleText = throttleGauge.querySelector('.throttle-text');
+
+                if (throttleFillPath) {
+                    const newColor = this.getThrottleColorRGB(throttlePercentage);
+                    const newPath = this.getThrottleArcPath(throttlePercentage);
+
+                    if (throttleFillPath.getAttribute('stroke') !== newColor) {
+                        throttleFillPath.setAttribute('stroke', newColor);
+                    }
+                    if (throttleFillPath.getAttribute('d') !== newPath) {
+                        throttleFillPath.setAttribute('d', newPath);
+                    }
+                }
+
+                if (throttleText) {
+                    const newText = `${Math.round(throttlePercentage)}%`;
+                    const newTextColor = (entry.position >= 1 && entry.position <= 3) ? 'black' : 'white';
+
+                    if (throttleText.textContent !== newText) {
+                        throttleText.textContent = newText;
+                    }
+                    if (throttleText.getAttribute('fill') !== newTextColor) {
+                        throttleText.setAttribute('fill', newTextColor);
+                    }
+                }
+            }
+
+            // Update button indicator
+            if (buttonIndicator) {
+                const buttonClass = entry.buttonPressed ? 'pressed' : 'released';
+                const buttonSymbol = entry.buttonPressed ? '●' : '○';
+                if (!buttonIndicator.classList.contains(buttonClass)) {
+                    buttonIndicator.className = `button-indicator ${buttonClass}`;
+                    buttonIndicator.textContent = buttonSymbol;
+                }
+            }
         }
 
 
@@ -474,19 +619,15 @@ class RaceDisplay {
             hasChanges = true;
         }
 
-        // Update brake wear
-        const brakeWear = element.querySelector('.brake-wear');
-        const brakeValue = element.querySelector('.brake-value');
-        if (brakeWear && brakeValue) {
+        // Update brake wear - changer la couleur du SVG
+        const brakeIconSvg = element.querySelector('.brake-icon-svg path');
+        if (brakeIconSvg) {
             const brakeWearValue = entry.brakeWear !== undefined ? entry.brakeWear : 15;
-            const newBrakeClass = this.getBrakeWearClass(brakeWearValue);
+            const newColor = this.getBrakeColorRGB(brakeWearValue);
 
-            if (brakeValue.textContent !== brakeWearValue.toString()) {
-                brakeValue.textContent = brakeWearValue;
-                brakeWear.className = `brake-wear ${newBrakeClass}`;
+            if (brakeIconSvg.getAttribute('fill') !== newColor) {
+                brakeIconSvg.setAttribute('fill', newColor);
                 hasChanges = true;
-            } else if (!brakeWear.classList.contains(newBrakeClass)) {
-                brakeWear.className = `brake-wear ${newBrakeClass}`;
             }
         }
 

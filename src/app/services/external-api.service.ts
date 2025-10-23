@@ -27,6 +27,11 @@ export class ExternalApiService {
   private initialCoinValues = new Map<number, number>(); // car_id -> coin_value initial
   private isInitialized = false;
 
+  // Compteurs de crédits persistants (survivent au reset du contrôleur)
+  private creditCounters = new Map<number, number>(); // car_id -> total credits added
+  private previousCoinValues = new Map<number, number>(); // car_id -> previous coin_value for increment detection
+  private readonly CREDIT_COUNTERS_KEY = 'hun-lap-credit-counters';
+
   public cars$ = this.carsSubject.asObservable();
   public coinAcceptors$ = this.coinAcceptorsSubject.asObservable();
   public timestamp$ = this.timestampSubject.asObservable();
@@ -38,6 +43,9 @@ export class ExternalApiService {
     private logger: LoggingService,
     private settings: AppSettings
   ) {
+    // Charger les compteurs de crédits depuis le localStorage
+    this.loadCreditCounters();
+
     // Écouter les changements de configuration
     this.settings.getExternalApi().subscribe(config => {
       const wasEnabled = this.enabled;
@@ -109,9 +117,28 @@ export class ExternalApiService {
           this.isInitialized = true;
           response.cars.forEach(car => {
             this.initialCoinValues.set(car.car_id, car.coin_value || 0);
+            this.previousCoinValues.set(car.car_id, car.coin_value || 0);
           });
           this.logger.info('Initial coin values captured:', Array.from(this.initialCoinValues.entries()));
         }
+
+        // Détecter les incrémentations de coin_value et mettre à jour les compteurs persistants
+        response.cars.forEach(car => {
+          const currentValue = car.coin_value || 0;
+          const previousValue = this.previousCoinValues.get(car.car_id) || 0;
+
+          // Si le coin_value a augmenté, incrémenter le compteur persistant
+          if (currentValue > previousValue) {
+            const increment = currentValue - previousValue;
+            const currentCounter = this.creditCounters.get(car.car_id) || 0;
+            this.creditCounters.set(car.car_id, currentCounter + increment);
+            this.saveCreditCounters();
+            this.logger.info(`💰 Credit added for car ${car.car_id}: +${increment} (total: ${currentCounter + increment})`);
+          }
+
+          // Mettre à jour la valeur précédente
+          this.previousCoinValues.set(car.car_id, currentValue);
+        });
 
         // Forcer une nouvelle référence pour que combineLatest se redéclenche
         this.carsSubject.next([...response.cars]);
@@ -208,8 +235,8 @@ export class ExternalApiService {
   }
 
   /**
-   * Marque les pièces comme consommées en synchronisant les valeurs initiales avec les valeurs actuelles
-   * Cela permet de "consommer" les pièces pour les voitures qui ont participé à la course
+   * Marque les pièces comme consommées en décrémentant les compteurs persistants de 1
+   * Cela permet de "consommer" 1 crédit pour les voitures qui ont participé à la course
    */
   markCoinsAsConsumed(carIds: number[]): void {
     carIds.forEach(carId => {
@@ -217,9 +244,72 @@ export class ExternalApiService {
       if (car) {
         const currentValue = car.coin_value || 0;
         this.initialCoinValues.set(carId, currentValue);
-        this.logger.info(`Coins marked as consumed for car ${carId}. New initial value:`, currentValue);
+
+        // Décrémenter le compteur persistant de 1 (consommer 1 crédit)
+        const currentCounter = this.creditCounters.get(carId) || 0;
+        const newCounter = Math.max(0, currentCounter - 1);
+        this.creditCounters.set(carId, newCounter);
+        this.saveCreditCounters();
+
+        this.logger.info(`1 coin consumed for car ${carId}. Credit counter: ${currentCounter} → ${newCounter}`);
       }
     });
+  }
+
+  /**
+   * Charger les compteurs de crédits depuis le localStorage
+   */
+  private loadCreditCounters(): void {
+    try {
+      const stored = localStorage.getItem(this.CREDIT_COUNTERS_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        this.creditCounters = new Map(Object.entries(data).map(([k, v]) => [Number(k), Number(v)]));
+        this.logger.info('Credit counters loaded from storage:', Array.from(this.creditCounters.entries()));
+      }
+    } catch (error) {
+      this.logger.error('Failed to load credit counters:', error);
+    }
+  }
+
+  /**
+   * Sauvegarder les compteurs de crédits dans le localStorage
+   */
+  private saveCreditCounters(): void {
+    try {
+      const data: { [key: number]: number } = {};
+      this.creditCounters.forEach((value, key) => {
+        data[key] = value;
+      });
+      localStorage.setItem(this.CREDIT_COUNTERS_KEY, JSON.stringify(data));
+    } catch (error) {
+      this.logger.error('Failed to save credit counters:', error);
+    }
+  }
+
+  /**
+   * Obtenir le compteur de crédits total pour une voiture (survit aux resets du contrôleur)
+   */
+  getCreditCounter(carId: number): number {
+    return this.creditCounters.get(carId) || 0;
+  }
+
+  /**
+   * Réinitialiser le compteur de crédits pour une voiture
+   */
+  resetCreditCounter(carId: number): void {
+    this.creditCounters.set(carId, 0);
+    this.saveCreditCounters();
+    this.logger.info(`Credit counter reset for car ${carId}`);
+  }
+
+  /**
+   * Réinitialiser tous les compteurs de crédits
+   */
+  resetAllCreditCounters(): void {
+    this.creditCounters.clear();
+    this.saveCreditCounters();
+    this.logger.info('All credit counters reset');
   }
 
   /**

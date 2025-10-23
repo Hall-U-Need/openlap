@@ -402,8 +402,9 @@ export class Session {
     }
 
     // Quand la course est complètement terminée : consommer les pièces et bloquer les voitures
-    if (this.carSync && id === undefined) {
+    if (this.carSync && id === undefined && !this.coinsConsumed) {
       console.log('Race fully finished');
+      this.coinsConsumed = true; // Marquer pour ne consommer qu'une seule fois
 
       // Consommer les pièces seulement si ce n'est pas un arrêt manuel
       if (!this.manuallyStopped) {

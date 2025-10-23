@@ -86,15 +86,7 @@
         <gauge [max]="15" [value]="item.fuel">&nbsp;</gauge>
     </ng-template>
     <ng-template ngSwitchCase="brakeWear">
-        <div class="brake-wear"
-             [ngClass]="{
-               'brake-good': (item.brakeWear !== undefined ? item.brakeWear : 15) >= 12,
-               'brake-worn': (item.brakeWear !== undefined ? item.brakeWear : 15) >= 6 && (item.brakeWear !== undefined ? item.brakeWear : 15) < 12,
-               'brake-critical': (item.brakeWear !== undefined ? item.brakeWear : 15) < 6
-             }">
-            <span class="brake-icon">🔴</span>
-            <span class="brake-value">{{item.brakeWear !== undefined ? item.brakeWear : 15}}</span>
-        </div>
+        <gauge [max]="15" [value]="item.brakeWear !== undefined ? item.brakeWear : 15">&nbsp;</gauge>
     </ng-template>
     <ng-template ngSwitchCase="status-combined">
         <div class="status-combined">
@@ -120,9 +112,8 @@
                 <!-- États par priorité : manually_blocked > manually_unblocked > normal (basé sur has_coin) -->
                 <ng-container *ngIf="item.manuallyBlocked">🔴</ng-container>
                 <ng-container *ngIf="item.manuallyUnblocked && !item.manuallyBlocked">🟢</ng-container>
-                <!-- État normal : pas d'intervention manuelle, affichage basé sur has_coin -->
-                <ng-container *ngIf="!item.manuallyBlocked && !item.manuallyUnblocked && item.hasPaid">🪙</ng-container>
-                <ng-container *ngIf="!item.manuallyBlocked && !item.manuallyUnblocked && !item.hasPaid">⚫</ng-container>
+                <!-- État normal : pas d'intervention manuelle, affichage du nombre de crédits (0 si aucun) -->
+                <ng-container *ngIf="!item.manuallyBlocked && !item.manuallyUnblocked">{{item.coinValue || 0}}</ng-container>
             </span>
         </div>
     </ng-template>

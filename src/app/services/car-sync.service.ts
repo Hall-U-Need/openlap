@@ -126,19 +126,21 @@ export class CarSyncService {
   }
 
   /**
-   * Vérifier si une voiture a payé (a inséré une pièce pendant la session)
+   * Vérifier si une voiture a payé (a inséré une pièce)
+   * Utilise le compteur persistant qui survit aux resets du contrôleur
    */
   hasCarPaid(carId: number): boolean {
-    // Utiliser le delta pour vérifier si une pièce a été ajoutée pendant la session
-    const coinValueDelta = this.externalApi.getCoinValueDelta(carId);
-    return coinValueDelta > 0;
+    // Utiliser le compteur persistant au lieu du delta
+    const creditCounter = this.externalApi.getCreditCounter(carId);
+    return creditCounter > 0;
   }
 
   /**
-   * Obtenir le montant payé par une voiture (delta depuis le début de la session)
+   * Obtenir le montant total payé par une voiture (depuis le dernier reset du compteur)
+   * Survit aux resets du contrôleur grâce au localStorage
    */
   getCarCoinValue(carId: number): number {
-    return this.externalApi.getCoinValueDelta(carId);
+    return this.externalApi.getCreditCounter(carId);
   }
 
   /**

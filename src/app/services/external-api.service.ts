@@ -198,6 +198,10 @@ export class ExternalApiService {
     return this.carsSubject.value.find(car => car.car_id === carId);
   }
 
+  getAllCars(): ApiCar[] {
+    return this.carsSubject.value;
+  }
+
   getCoinAcceptorById(id: number): CoinAcceptor | undefined {
     return this.coinAcceptorsSubject.value.find(acceptor => acceptor.id === id);
   }

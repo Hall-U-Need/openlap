@@ -117,6 +117,19 @@ export class RmsPage implements OnDestroy, OnInit {
     this.subscription.add(combineLatest([this.cu, this.getRaceOptions(this.mode)]).subscribe(([cu, options]) => {
       if (cu && options) {
         this.session = this.startSession(cu, options);
+
+        // Si on est en mode course et que l'API externe est activée,
+        // reset toutes les voitures quand le CU devient prêt
+        if (this.mode === 'race' && this.externalApi.isEnabled()) {
+          this.carSync.resetAllActiveCars().subscribe({
+            next: (response) => {
+              this.logger.info('All cars reset to normal state when CU ready:', response);
+            },
+            error: (error) => {
+              this.logger.error('Failed to reset cars when CU ready:', error);
+            }
+          });
+        }
       } else {
         this.session = null;
       }

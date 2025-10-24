@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { combineLatest, Observable, forkJoin } from 'rxjs';
+import { combineLatest, Observable, forkJoin, of } from 'rxjs';
 import { map, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { ExternalApiService } from './external-api.service';
@@ -288,5 +288,25 @@ export class CarSyncService {
       // État actuel : normal → passer à bloqué manuellement
       return this.externalApi.blockCar(carId, true);
     }
+  }
+
+  /**
+   * Reset toutes les voitures actives à l'état normal
+   */
+  resetAllActiveCars(): Observable<any> {
+    const cars = this.externalApi.getAllCars();
+    if (!cars || cars.length === 0) {
+      this.logger.info('No cars found to reset');
+      return of({ success_count: 0, total: 0 });
+    }
+
+    // Créer la liste des voitures à reset
+    const carsToReset = cars.map(car => ({
+      car_id: car.car_id,
+      reset_to_normal: true
+    }));
+
+    this.logger.info(`Resetting ${carsToReset.length} cars to normal state`);
+    return this.externalApi.blockCars(carsToReset);
   }
 }

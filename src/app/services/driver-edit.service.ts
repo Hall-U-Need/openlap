@@ -40,6 +40,11 @@ export class DriverEditService {
     return current ? current.driverId === driverId : false;
   }
 
+  getEditingDriverId(): number | undefined {
+    const current = this.editingState.value;
+    return current?.driverId;
+  }
+
   getEditingName(driverId: number): string {
     const current = this.editingState.value;
     return current && current.driverId === driverId ? current.editingName : '';

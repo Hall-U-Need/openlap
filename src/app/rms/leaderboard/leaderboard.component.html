@@ -1,5 +1,5 @@
 <leaderboard-head class="row" [fields]="fields" [pos]="true"></leaderboard-head>
-<leaderboard-item class="row" *ngFor="let item of items; odd as isOddRow;"
+<leaderboard-item class="row" *ngFor="let item of items; odd as isOddRow; trackBy: trackByItemId"
                   (click)="showDetails(item)"
                   [ngClass]="isOddRow ? 'odd' : 'even'"
                   [fields]="fields" [item]="item" [ranked]="ranked" [best]="best">

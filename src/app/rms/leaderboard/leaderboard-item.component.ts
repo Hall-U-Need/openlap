@@ -1,5 +1,7 @@
-import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { take } from 'rxjs/operators';
+import { IonInput } from '@ionic/angular';
 
 import { LeaderboardItem } from './leaderboard.component';
 import { AppSettings } from '../../app-settings';
@@ -16,10 +18,10 @@ export class LeaderboardItemComponent implements OnInit, OnDestroy {
   @Input() item: LeaderboardItem;
   @Input() ranked: LeaderboardItem[];
   @Input() best: number[];
+  @ViewChild('nameInput') nameInput: IonInput;
 
   isEditingName = false;
-  editingName = '';
-  private subscription = new Subscription();
+  private shouldClearOnType = false;
 
   constructor(
     private settings: AppSettings,
@@ -28,19 +30,9 @@ export class LeaderboardItemComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // S'abonner aux changements d'état d'édition
-    this.subscription.add(
-      this.driverEditService.editingState$.subscribe(state => {
-        this.isEditingName = this.driverEditService.isEditing(this.item.id);
-        if (this.isEditingName) {
-          this.editingName = this.driverEditService.getEditingName(this.item.id);
-        }
-      })
-    );
   }
 
   ngOnDestroy() {
-    this.subscription.unsubscribe();
   }
 
   abs(n: number) {
@@ -52,57 +44,119 @@ export class LeaderboardItemComponent implements OnInit, OnDestroy {
       event.stopPropagation();
       event.preventDefault();
     }
-    
+
+    // IMPORTANT: Notifier le service AVANT de passer en mode édition
+    // pour que le parent préserve les données avant la prochaine mise à jour
     this.driverEditService.startEditing(this.item.id, this.item.driver?.name || '');
-    
+
+    // Ensuite passer en mode édition
+    this.isEditingName = true;
+    this.shouldClearOnType = true;
+
     // Focus sur le champ input après un petit délai
     setTimeout(() => {
-      const inputElement = document.querySelector('.driver-name-input ion-input');
-      if (inputElement) {
-        (inputElement as any).setFocus();
+      if (this.nameInput) {
+        this.nameInput.setFocus();
+        // Sélectionner tout le texte pour qu'il soit remplacé à la première frappe
+        this.nameInput.getInputElement().then(input => {
+          input.select();
+        });
       }
-    }, 100);
+    }, 150);
   }
 
-  async saveName() {
-    const currentName = this.driverEditService.getEditingName(this.item.id);
-    if (currentName.trim()) {
+  onFocusName(event) {
+    // Ne rien faire au focus, on gère la sélection dans startEditName
+  }
+
+  onBlurName(event) {
+    // Sauvegarder quand le champ perd le focus
+    this.saveName();
+  }
+
+  onChangeName(event) {
+    // Ne rien faire ici, juste pour compatibilité
+  }
+
+  async onNameChange(newName: string) {
+    // Si on doit effacer à la première frappe, le faire maintenant
+    if (this.shouldClearOnType && newName) {
+      this.shouldClearOnType = false;
+      // Si l'utilisateur tape quelque chose, on efface tout et on met juste la nouvelle lettre
+      this.item.driver.name = newName.charAt(newName.length - 1);
+      return;
+    }
+
+    // Mettre à jour le code en fonction du nouveau nom
+    if (newName && newName.trim()) {
       try {
         const drivers = await this.settings.getDrivers().toPromise();
-        const updatedDrivers = [...drivers];
-        
-        // Mettre à jour le nom du pilote
-        if (updatedDrivers[this.item.id]) {
-          updatedDrivers[this.item.id] = {
-            ...updatedDrivers[this.item.id],
-            name: currentName.trim(),
-            code: this.generateCode(currentName.trim(), this.item.id, updatedDrivers)
-          };
-          
-          await this.settings.setDrivers(updatedDrivers);
-        }
+        this.item.driver.code = this.generateCode(newName, this.item.id, drivers);
       } catch (error) {
-        console.error('Error saving driver name:', error);
+        console.error('Error generating code:', error);
       }
+    } else {
+      this.item.driver.code = undefined;
     }
-    
-    this.cancelEdit();
-  }
-
-  cancelEdit() {
-    this.driverEditService.stopEditing();
   }
 
   onKeyPress(event: KeyboardEvent) {
     if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
       this.saveName();
     } else if (event.key === 'Escape') {
-      this.cancelEdit();
+      event.preventDefault();
+      event.stopPropagation();
+      this.isEditingName = false;
+      // Notifier le service qu'on annule l'édition
+      this.driverEditService.stopEditing();
     }
   }
 
-  onNameChange(newName: string) {
-    this.driverEditService.updateEditingName(newName);
+  async saveName() {
+    const newName = this.item.driver.name?.trim();
+    console.log('Saving name for driver', this.item.id, ':', newName);
+
+    try {
+      // Récupérer les drivers actuels
+      const drivers = await this.settings.getDrivers().pipe(
+        take(1)
+      ).toPromise();
+
+      console.log('Current drivers:', drivers);
+
+      // Créer une copie et mettre à jour
+      const updatedDrivers = drivers.map((driver, index) => {
+        if (index === this.item.id) {
+          const code = newName ? this.generateCode(newName, this.item.id, drivers) : undefined;
+          console.log('Updating driver', index, 'with name:', newName, 'code:', code);
+          return {
+            ...driver,
+            name: newName || undefined,
+            code: code
+          };
+        }
+        return driver;
+      });
+
+      console.log('Updated drivers:', updatedDrivers);
+
+      // Sauvegarder
+      await this.settings.setDrivers(updatedDrivers);
+      console.log('Name saved successfully');
+
+      // Mettre à jour l'affichage local
+      this.item.driver.name = newName || undefined;
+      this.item.driver.code = updatedDrivers[this.item.id].code;
+
+      // Fermer le mode édition
+      this.isEditingName = false;
+      // Notifier le service qu'on a fini l'édition
+      this.driverEditService.stopEditing();
+    } catch (error) {
+      console.error('Error saving driver name:', error);
+    }
   }
 
   toggleCarBlock(event?: Event) {

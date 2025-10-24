@@ -9,22 +9,18 @@
         <span *ngIf="!isEditingName" (click)="startEditName($event)" class="driver-name-display">
             {{item.driver?.name}}
         </span>
-        <div *ngIf="isEditingName" class="driver-name-edit" (click)="$event.stopPropagation()">
-            <ion-input [ngModel]="editingName"
-                       (ngModelChange)="onNameChange($event)"
-                       (keydown)="onKeyPress($event)"
-                       class="driver-name-input"
-                       clearInput
-                       enterkeyhint="done"
-                       size="small">
-            </ion-input>
-            <ion-button size="small" fill="clear" (click)="saveName()">
-                <ion-icon name="checkmark"></ion-icon>
-            </ion-button>
-            <ion-button size="small" fill="clear" (click)="cancelEdit()">
-                <ion-icon name="close"></ion-icon>
-            </ion-button>
-        </div>
+        <ion-input *ngIf="isEditingName"
+                   #nameInput
+                   [(ngModel)]="item.driver.name"
+                   (ngModelChange)="onNameChange($event)"
+                   (ionFocus)="onFocusName($event)"
+                   (ionBlur)="onBlurName($event)"
+                   (ionChange)="onChangeName($event)"
+                   (keydown)="onKeyPress($event)"
+                   class="driver-name-input"
+                   clearInput
+                   enterkeyhint="done">
+        </ion-input>
     </ng-template>
     <ng-template ngSwitchCase="code">
         {{item.driver?.code}}

@@ -4,6 +4,8 @@ import { IonModal, Platform } from '@ionic/angular';
 
 import { Subscription } from 'rxjs';
 
+import { DriverEditService } from '../../services/driver-edit.service';
+
 const FIELDS = [{
   // no fuel/pit lane
   practice: [
@@ -93,7 +95,27 @@ export class LeaderboardComponent implements OnDestroy {
   @Input() set items(items: LeaderboardItem[]) {
     this._items = items;
     if (items) {
-      this.ranked = [...items];
+      // Préserver les noms en cours d'édition
+      const editingDriverId = this.driverEditService.getEditingDriverId();
+
+      this.ranked = [...items].map((item, index) => {
+        // Si ce pilote est en cours d'édition, préserver son nom et code actuels
+        if (editingDriverId !== undefined && item.id === editingDriverId && this.ranked) {
+          const existingItem = this.ranked.find(r => r.id === item.id);
+          if (existingItem) {
+            return {
+              ...item,
+              driver: {
+                ...item.driver,
+                name: existingItem.driver?.name || item.driver?.name,
+                code: existingItem.driver?.code || item.driver?.code
+              }
+            };
+          }
+        }
+        return item;
+      });
+
       this.ranked.sort((lhs, rhs) => lhs.position - rhs.position);
       // TODO: move to rms?
       this.best = items.map(item => item.best).reduce((acc, times) => {
@@ -147,8 +169,12 @@ export class LeaderboardComponent implements OnDestroy {
 
   private subscription: Subscription;
 
-  constructor(ref: ChangeDetectorRef, private platform: Platform) {
+  constructor(ref: ChangeDetectorRef, private platform: Platform, private driverEditService: DriverEditService) {
     this.subscription = platform.resize.subscribe(() => ref.markForCheck());
+  }
+
+  trackByItemId(index: number, item: LeaderboardItem): number {
+    return item.id;
   }
 
   getLapTimes(item: LeaderboardItem) {

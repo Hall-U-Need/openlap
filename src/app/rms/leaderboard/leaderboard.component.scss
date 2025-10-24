@@ -281,14 +281,15 @@ gauge {
 }
 
 .driver-name-input {
-    --padding-start: 4px;
-    --padding-end: 4px;
-    --padding-top: 2px;
-    --padding-bottom: 2px;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    --padding-top: 4px;
+    --padding-bottom: 4px;
     font-size: inherit;
     flex: 1;
-    min-width: 0;
-    
+    min-width: 120px;
+    max-width: 100%;
+
     ion-input {
         --color: inherit;
         --background: rgba(255, 255, 255, 0.1);

@@ -28,6 +28,8 @@ export class DriversPage implements OnDestroy, OnInit {
 
   readonly placeholder = 'Driver {{number}}';
 
+  private shouldClearOnType: { [key: number]: boolean } = {};
+
   constructor(
     private app: AppService,
     private cu: ControlUnitService,
@@ -126,6 +128,27 @@ export class DriversPage implements OnDestroy, OnInit {
 
   onChangeName(event) {
     event?.target?.getInputElement().then(e => e.blur());
+  }
+
+  onFocusName(event, id: number) {
+    // Marquer qu'on doit effacer à la première frappe
+    this.shouldClearOnType[id] = true;
+    // Sélectionner tout le texte pour qu'il soit remplacé à la première frappe
+    event?.target?.getInputElement().then(e => e.select());
+  }
+
+  onNameChange(newName: string, id: number) {
+    // Si on doit effacer à la première frappe, le faire maintenant
+    if (this.shouldClearOnType[id] && newName) {
+      this.shouldClearOnType[id] = false;
+      // Garder seulement la dernière lettre tapée
+      this.drivers[id].name = newName.charAt(newName.length - 1);
+      this.drivers[id].code = this.getCode(this.drivers[id].name, id);
+    } else {
+      // Mise à jour normale
+      this.drivers[id].name = newName || undefined;
+      this.drivers[id].code = this.getCode(newName || '', id);
+    }
   }
 
   private getDriverName(id) {

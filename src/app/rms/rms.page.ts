@@ -5,13 +5,13 @@ import { PopoverController, Platform } from '@ionic/angular';
 
 import { TranslateService } from '@ngx-translate/core';
 
-import { Observable, Subscription, from, of, merge } from 'rxjs';
+import { Observable, Subscription, from, of, merge, forkJoin } from 'rxjs';
 import { combineLatest } from 'rxjs';
 import { distinctUntilChanged, filter, map, mergeMap, pairwise, share, skipWhile, startWith, switchMap, take, withLatestFrom } from 'rxjs/operators';
 
 import { AppSettings, Options, RaceOptions } from '../app-settings';
 import { ControlUnit } from '../carrera';
-import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService, I18nAlertService } from '../services';
+import { AppService, ControlUnitService, LoggingService, SpeechService, ExternalApiService, I18nAlertService, TuningSyncService } from '../services';
 import { CarSyncService } from '../services/car-sync.service';
 import { WebDisplayService } from '../services/web-display.service';
 
@@ -67,7 +67,7 @@ export class RmsPage implements OnDestroy, OnInit {
     private logger: LoggingService, private settings: AppSettings, private speech: SpeechService,
     private popover: PopoverController, private translate: TranslateService, route: ActivatedRoute,
     private carSync: CarSyncService, private externalApi: ExternalApiService,
-    private webDisplay: WebDisplayService, private alert: I18nAlertService)
+    private webDisplay: WebDisplayService, private alert: I18nAlertService, private tuningSync: TuningSyncService)
   {
     const mode = route.snapshot.paramMap.get('mode');
     switch (mode) {
@@ -139,7 +139,6 @@ export class RmsPage implements OnDestroy, OnInit {
     const unpaidMask = this.calculateUnpaidCarsMask();
     const paidCarsCount = this.countPaidCars(unpaidMask);
     this.canStartRace = paidCarsCount >= 2;
-    this.logger.info(`Can start race: ${this.canStartRace} (${paidCarsCount} paid cars)`);
   }
 
   startSession(cu: ControlUnit, options: RaceOptions) {
@@ -167,10 +166,10 @@ export class RmsPage implements OnDestroy, OnInit {
       const observables = drivers.map((obj, index) => {
         const code = obj.code || '#' + (index + 1);
         if (obj.name) {
-          return of({name: obj.name, code: code, color: obj.color, brake: obj.brake, carImage: obj.carImage});
+          return of({name: obj.name, code: code, color: obj.color, brake: obj.brake, speed: obj.speed, carImage: obj.carImage});
         } else {
           return this.getTranslations('Driver {{number}}', {number: index + 1}).pipe(map((name: string) => {
-            return {name: name, code: code, color: obj.color, brake: obj.brake, carImage: obj.carImage}
+            return {name: name, code: code, color: obj.color, brake: obj.brake, speed: obj.speed, carImage: obj.carImage}
           }));
         }
       });
@@ -324,7 +323,8 @@ export class RmsPage implements OnDestroy, OnInit {
             blocked: carInfo ? carInfo.blocked : false,
             manuallyUnblocked: carInfo ? carInfo.manually_unblocked : false,
             manuallyBlocked: carInfo ? carInfo.manually_blocked : false,
-            brakeWear: drivers[item.id]?.brake !== undefined ? drivers[item.id].brake : 15
+            brakeWear: drivers[item.id]?.brake !== undefined ? drivers[item.id].brake : 15,
+            speed: drivers[item.id]?.speed !== undefined ? drivers[item.id].speed : 10
           });
         });
         items.sort(compare[order || 'position']);
@@ -380,8 +380,59 @@ export class RmsPage implements OnDestroy, OnInit {
       })
     );
 
+    // Appliquer les paramètres de difficulté dès la création de la session (avant les feux)
+    if (options.difficultyLevel) {
+      this.logger.info('🎮 Applying difficulty settings immediately after session creation');
+      this.applyDifficultySettings(cu, options.difficultyLevel);
+    }
+
     if (options.mode != 'practice') {
       const start = cu.getStart();
+
+      // En mode débutant, remettre à l'état normal uniquement les voitures participantes quand les feux s'éteignent
+      if (options.difficultyLevel === 'beginner' && this.carSync) {
+        start.pipe(
+          pairwise(),
+          filter(([prev, curr]) => prev !== 0 && curr === 0),
+          take(1)
+        ).subscribe(() => {
+          this.logger.info('🟢 Beginner mode: resetting participating cars to normal - race started!');
+
+          // Utiliser le masque pour identifier les voitures qui ont payé
+          const unpaidMask = this.calculateUnpaidCarsMask();
+          this.logger.info('Unpaid mask:', unpaidMask.toString(2).padStart(8, '0'));
+
+          const activeCars = this.carSync.getActiveCars();
+          // Débloquer les voitures actives qui ont payé (bit à 0 dans le masque)
+          const participatingCars = activeCars.filter(car => {
+            const carMask = 1 << (car.car_id - 1); // car_id est 1-based
+            const isPaid = (unpaidMask & carMask) === 0;
+            this.logger.info(`Car ${car.car_id}: mask bit=${(unpaidMask & carMask) !== 0}, isPaid=${isPaid}`);
+            return isPaid;
+          });
+
+          this.logger.info(`Found ${participatingCars.length} participating cars to reset`);
+
+          if (participatingCars.length > 0) {
+            // Utiliser le nouveau endpoint batch pour débloquer toutes les voitures en une seule requête
+            const carsToReset = participatingCars.map(car => ({
+              car_id: car.car_id,
+              reset_to_normal: true
+            }));
+
+            this.externalApi.blockCars(carsToReset).subscribe({
+              next: (response) => {
+                this.logger.info(`✅ Participating cars reset to normal (${response.success_count}/${response.total}) - race can begin`);
+              },
+              error: (error) => {
+                this.logger.error('❌ Error resetting cars:', error);
+              }
+            });
+          } else {
+            this.logger.info('⚠️ No participating cars to reset!');
+          }
+        });
+      }
 
       // Appliquer le masque quand la séquence de feux démarre (transition 1 -> 2)
       start.pipe(
@@ -404,7 +455,32 @@ export class RmsPage implements OnDestroy, OnInit {
       start.pipe(take(1)).toPromise().then(value => {
         this.logger.info('Initial start value:', value);
         if (value === 0) {
-          cu.toggleStart();
+          // En mode débutant, bloquer toutes les voitures AVANT de démarrer la séquence
+          if (options.difficultyLevel === 'beginner' && this.carSync) {
+            this.logger.info('🔴 Beginner mode: blocking all cars BEFORE countdown start');
+            const activeCars = this.carSync.getActiveCars();
+            this.logger.info(`Found ${activeCars.length} active cars to block`);
+            const blockRequests = activeCars.map(car =>
+              this.externalApi.blockCar(car.car_id, true)
+            );
+
+            if (blockRequests.length > 0) {
+              forkJoin(blockRequests).subscribe({
+                next: (results) => {
+                  this.logger.info('✅ All cars blocked, now starting countdown');
+                  cu.toggleStart();
+                },
+                error: (error) => {
+                  this.logger.error('❌ Error blocking cars:', error);
+                  cu.toggleStart(); // Lancer quand même le décompte en cas d'erreur
+                }
+              });
+            } else {
+              cu.toggleStart();
+            }
+          } else {
+            cu.toggleStart();
+          }
         }
         // wait until startlight goes off; TODO: subscribe/unsubscribe?
         cu.getStart().pipe(pairwise(),filter(([prev, curr]) => {
@@ -524,6 +600,48 @@ export class RmsPage implements OnDestroy, OnInit {
     }
   }
 
+  onStartClick(triggerStart: () => void) {
+    this.logger.info('🎬 Start button clicked!');
+
+    // En mode débutant, bloquer toutes les voitures AVANT de démarrer le CU
+    if (this.session?.options?.difficultyLevel === 'beginner' && this.carSync) {
+      // Récupérer l'état actuel des feux pour le log
+      this.cu.pipe(take(1)).subscribe(cu => {
+        cu.getStart().pipe(take(1)).subscribe(startValue => {
+          this.logger.info(`🔴 Beginner mode: blocking all cars BEFORE starting countdown (current start value: ${startValue})`);
+
+          const activeCars = this.carSync.getActiveCars();
+          this.logger.info(`Found ${activeCars.length} active cars to block`);
+
+          if (activeCars.length > 0) {
+            // Utiliser le nouveau endpoint batch pour bloquer toutes les voitures en une seule requête
+            const carsToBlock = activeCars.map(car => ({
+              car_id: car.car_id,
+              blocked: true
+            }));
+
+            this.externalApi.blockCars(carsToBlock).subscribe({
+              next: (response) => {
+                this.logger.info(`✅ All cars blocked (${response.success_count}/${response.total}), NOW triggering countdown start`);
+                triggerStart(); // Lancer le décompte APRÈS le blocage
+              },
+              error: (error) => {
+                this.logger.error('❌ Error blocking cars, starting countdown anyway');
+                triggerStart(); // Lancer quand même en cas d'erreur
+              }
+            });
+          } else {
+            this.logger.info('No cars to block, starting countdown');
+            triggerStart();
+          }
+        });
+      });
+    } else {
+      // Mode normal, démarrer immédiatement
+      triggerStart();
+    }
+  }
+
   showMenu(event: Event) {
     return this.popover.create({
       component: RmsMenu,
@@ -580,7 +698,6 @@ export class RmsPage implements OnDestroy, OnInit {
       }
     }
 
-    this.logger.info('Unpaid cars mask calculated:', mask.toString(2).padStart(8, '0'), 'binary, decimal:', mask);
     return mask;
   }
 
@@ -604,5 +721,63 @@ export class RmsPage implements OnDestroy, OnInit {
     }
 
     return paidCount;
+  }
+
+  /**
+   * Appliquer les paramètres de difficulté à toutes les voitures
+   * @param cu Control Unit
+   * @param level Niveau de difficulté
+   */
+  private applyDifficultySettings(cu: ControlUnit, level: 'beginner' | 'intermediate' | 'expert'): void {
+    let speedValue: number;
+    let brakeValue: number;
+
+    switch (level) {
+      case 'beginner':
+        speedValue = 4;  // 40% (4/10)
+        brakeValue = 15; // 100% (15/15)
+        this.logger.info('Applying BEGINNER difficulty: Speed 40%, Brake 100%');
+        break;
+      case 'intermediate':
+        speedValue = 7;  // 70% (7/10)
+        brakeValue = 10; // ~70% (10/15)
+        this.logger.info('Applying INTERMEDIATE difficulty: Speed 70%, Brake 70%');
+        break;
+      case 'expert':
+        speedValue = 10; // 100% (10/10)
+        brakeValue = 7;  // ~50% (7/15)
+        this.logger.info('Applying EXPERT difficulty: Speed 100%, Brake 50%');
+        break;
+      default:
+        this.logger.warn('Unknown difficulty level:', level);
+        return;
+    }
+
+    // Appliquer immédiatement les paramètres au Control Unit
+    for (let carId = 0; carId < 6; carId++) {
+      cu.setSpeed(carId, speedValue);
+      cu.setBrake(carId, brakeValue);
+      this.logger.info(`📤 Sent to CU - Car ${carId + 1}: Speed=${speedValue}, Brake=${brakeValue}`);
+    }
+
+    // Sauvegarder les valeurs de freins et vitesse dans les paramètres des drivers pour l'affichage
+    this.settings.getDrivers().pipe(take(1)).subscribe(async (drivers) => {
+      this.logger.info('🔍 Current drivers values:', drivers.map(d => ({ brake: d.brake, speed: d.speed })));
+
+      const updatedDrivers = drivers.map(driver => ({
+        ...driver,
+        brake: brakeValue,
+        speed: speedValue
+      }));
+
+      this.logger.info('🔄 Updating drivers - brake:', brakeValue, 'speed:', speedValue);
+      await this.settings.setDrivers(updatedDrivers);
+      this.logger.info('✅ Driver settings saved');
+
+      // Vérifier que la sauvegarde a fonctionné
+      this.settings.getDrivers().pipe(take(1)).subscribe(newDrivers => {
+        this.logger.info('🔍 Verification - New values:', newDrivers.map(d => ({ brake: d.brake, speed: d.speed })));
+      });
+    });
   }
 }

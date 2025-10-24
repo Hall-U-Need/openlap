@@ -366,16 +366,40 @@ export class ExternalApiService {
       this.logger.warn('External API is disabled, cannot reset car to normal');
       return EMPTY;
     }
-    
+
     const url = `${this.baseApiUrl}/block-car`;
     const body = { car_id: carId, reset_to_normal: true };
-    
+
     return this.http.post<any>(url, body).pipe(
       tap(response => {
         this.logger.info(`Car ${carId} reset to normal state:`, response);
       }),
       catchError(error => {
         this.logger.error(`Failed to reset car ${carId} to normal at ${url}:`, error);
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Bloquer/débloquer plusieurs voitures en une seule requête
+   * @param cars Tableau d'objets avec car_id et blocked/reset_to_normal
+   */
+  blockCars(cars: Array<{ car_id: number; blocked?: boolean; reset_to_normal?: boolean }>): Observable<any> {
+    if (!this.enabled) {
+      this.logger.warn('External API is disabled, cannot block/unblock cars');
+      return EMPTY;
+    }
+
+    const url = `${this.baseApiUrl}/block-cars`;
+    const body = { cars };
+
+    return this.http.post<any>(url, body).pipe(
+      tap(response => {
+        this.logger.info(`Batch operation completed: ${response.success_count}/${response.total} succeeded`, response);
+      }),
+      catchError(error => {
+        this.logger.error(`Failed to perform batch block/unblock operation at ${url}:`, error);
         throw error;
       })
     );

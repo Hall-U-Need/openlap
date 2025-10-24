@@ -85,6 +85,9 @@
     <ng-template ngSwitchCase="fuel">
         <gauge [max]="15" [value]="item.fuel">&nbsp;</gauge>
     </ng-template>
+    <ng-template ngSwitchCase="speed">
+        {{item.speed !== undefined ? item.speed : 10}}
+    </ng-template>
     <ng-template ngSwitchCase="brakeWear">
         <gauge [max]="15" [value]="item.brakeWear !== undefined ? item.brakeWear : 15">&nbsp;</gauge>
     </ng-template>

@@ -57,6 +57,17 @@
           <ion-select-option *ngFor="let i of [1, 2, 3, 4, 5, 6]" [value]="i">{{i}}</ion-select-option>
         </ion-select>
       </ion-item>
+      <ion-item *ngIf="mode == 'race'">
+        <ion-select formControlName="difficultyLevel"
+                    label="Niveau de difficulté"
+                    cancelText="{{'Cancel' | translate}}"
+                    okText="{{'OK' | translate}}">
+          <ion-select-option value="">Aucun</ion-select-option>
+          <ion-select-option value="beginner">Débutant (Freins 100%, Vitesse 40%)</ion-select-option>
+          <ion-select-option value="intermediate">Intermédiaire (Freins 70%, Vitesse 70%)</ion-select-option>
+          <ion-select-option value="expert">Expert (Freins 50%, Vitesse 100%)</ion-select-option>
+        </ion-select>
+      </ion-item>
       <ion-item>
         <ion-toggle formControlName="auto" translate>Autonomous Car</ion-toggle>
       </ion-item>

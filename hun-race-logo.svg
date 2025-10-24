@@ -1,0 +1,75 @@
+<svg width="800" height="300" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="300" fill="#000000"/>
+
+  <!-- White border frame -->
+  <rect x="10" y="10" width="780" height="280" fill="none" stroke="#ffffff" stroke-width="6"/>
+
+  <!-- HUN text block with 3D shadow -->
+  <g id="hun-block">
+    <!-- Shadow layer (red) -->
+    <rect x="56" y="86" width="240" height="130" fill="#fe4637"/>
+    <!-- Main block (yellow) -->
+    <rect x="50" y="80" width="240" height="130" fill="#ffed00"/>
+    <!-- Border -->
+    <rect x="50" y="80" width="240" height="130" fill="none" stroke="#000000" stroke-width="4"/>
+    <!-- HUN text -->
+    <text x="170" y="170"
+          font-family="Montserrat, Arial, sans-serif"
+          font-size="80"
+          font-weight="900"
+          fill="#000000"
+          text-anchor="middle">HUN</text>
+  </g>
+
+  <!-- RACE text block with 3D shadow -->
+  <g id="race-block">
+    <!-- Shadow layer (pink) -->
+    <rect x="316" y="86" width="280" height="130" fill="#ff8cab"/>
+    <!-- Main block (cyan) -->
+    <rect x="310" y="80" width="280" height="130" fill="#00d2e6"/>
+    <!-- Border -->
+    <rect x="310" y="80" width="280" height="130" fill="none" stroke="#000000" stroke-width="4"/>
+    <!-- RACE text -->
+    <text x="450" y="170"
+          font-family="Montserrat, Arial, sans-serif"
+          font-size="80"
+          font-weight="900"
+          fill="#000000"
+          text-anchor="middle">RACE</text>
+  </g>
+
+  <!-- Racing flag icon with 3D shadow -->
+  <g id="flag-icon">
+    <!-- Shadow (green) -->
+    <rect x="626" y="96" width="124" height="124" fill="#00a039"/>
+    <!-- Flag block (orange) -->
+    <rect x="620" y="90" width="124" height="124" fill="#ee9c08"/>
+    <!-- Border -->
+    <rect x="620" y="90" width="124" height="124" fill="none" stroke="#000000" stroke-width="4"/>
+
+    <!-- Checkered flag pattern -->
+    <!-- Top row -->
+    <rect x="640" y="110" width="20" height="20" fill="#000000"/>
+    <rect x="680" y="110" width="20" height="20" fill="#000000"/>
+    <!-- Second row -->
+    <rect x="660" y="130" width="20" height="20" fill="#000000"/>
+    <!-- Third row -->
+    <rect x="640" y="150" width="20" height="20" fill="#000000"/>
+    <rect x="680" y="150" width="20" height="20" fill="#000000"/>
+    <!-- Fourth row -->
+    <rect x="660" y="170" width="20" height="20" fill="#000000"/>
+
+    <!-- Flag pole -->
+    <rect x="635" y="110" width="4" height="80" fill="#ffffff"/>
+  </g>
+
+  <!-- Subtitle -->
+  <text x="400" y="260"
+        font-family="Montserrat, Arial, sans-serif"
+        font-size="20"
+        font-weight="600"
+        fill="#ffffff"
+        text-anchor="middle"
+        letter-spacing="2">CARRERA DIGITAL RACE MANAGEMENT</text>
+</svg>

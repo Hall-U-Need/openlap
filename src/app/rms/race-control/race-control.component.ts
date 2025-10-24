@@ -49,6 +49,7 @@ export class RaceControlComponent  {
   @Input() canStart: boolean = true;
 
   @Output() onYellowFlag = new EventEmitter();
+  @Output() onStartClick = new EventEmitter<() => void>();
 
   constructor() {}
  
@@ -60,7 +61,11 @@ export class RaceControlComponent  {
 
   toggleStart() {
     if (this.cu) {
-      this.cu.trigger(ControlUnitButton.START);
+      // Passer une fonction callback qui déclenche le START
+      const triggerStart = () => {
+        this.cu.trigger(ControlUnitButton.START);
+      };
+      this.onStartClick.emit(triggerStart);
     }
   }
 }

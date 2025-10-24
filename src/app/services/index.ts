@@ -8,5 +8,6 @@ export * from './i18n-toast.service';
 export * from './logging.service';
 export * from './settings.service';
 export * from './speech.service';
+export * from './tuning-sync.service';
 export * from './web-display.service';
 export * from './api-models';

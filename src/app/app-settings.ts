@@ -101,6 +101,7 @@ export interface Driver {
   code?: string;
   color: string;
   brake?: number;
+  speed?: number;
   carImage?: string;
 }
 
@@ -132,6 +133,7 @@ export class RaceOptions {
   auto = false;
   pace = false;
   minLapTime = 500;  // FIXME: Configurable?
+  difficultyLevel?: 'beginner' | 'intermediate' | 'expert';
 }
 
 @Injectable({

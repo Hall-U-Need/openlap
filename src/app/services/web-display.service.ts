@@ -20,6 +20,7 @@ interface WebDisplayData {
     currentLap: number;
     startLights?: number;  // 0-5: nombre de feux allumés
     startBlink?: boolean;  // true si les feux clignotent
+    fuelMode?: boolean;    // true si le mode fuel est actif
   };
   leaderboard: Array<{
     position: number;
@@ -98,11 +99,13 @@ export class WebDisplayService implements OnDestroy {
   private timerSubscription?: Subscription;
   private startLightsSubscription?: Subscription;
   private lapCountSubscription?: Subscription;
+  private fuelModeSubscription?: Subscription;
   private currentSession?: Session;
   private currentOptions?: any;
   private currentTime = 0;
   private currentLap = 0;
   private currentRaceStatus = 'En cours';
+  private currentFuelMode = false;
   private pitfuel: number[] = [];
   private broadcastThrottleTimer: any = null;
   private pendingBroadcast = false;
@@ -375,6 +378,26 @@ export class WebDisplayService implements OnDestroy {
         this.logger.info('✅ Subscribed to current lap counter');
       }
 
+      // S'abonner au mode fuel (pitlane)
+      if (rmsComponent.pitlane) {
+        this.fuelModeSubscription = rmsComponent.pitlane.subscribe(
+          (fuelMode: boolean) => {
+            this.currentFuelMode = fuelMode;
+            this.logger.info('⛽ Fuel mode updated:', fuelMode);
+            // Mettre à jour les données de course avec le mode fuel
+            this.updateRaceData({
+              mode: options?.mode || 'practice',
+              status: this.currentRaceStatus || 'En cours',
+              time: this.currentTime,
+              currentLap: this.currentLap,
+              laps: options?.laps || 0,
+              fuelMode: fuelMode
+            });
+          }
+        );
+        this.logger.info('✅ Subscribed to fuel mode');
+      }
+
       // S'abonner aux feux de départ du ControlUnit
       if (rmsComponent.cu?.value) {
         const cu = rmsComponent.cu.value;
@@ -401,7 +424,8 @@ export class WebDisplayService implements OnDestroy {
               currentLap: this.currentLap,
               laps: options?.laps || 0,
               startLights: lights,
-              startBlink: blink
+              startBlink: blink,
+              fuelMode: this.currentFuelMode
             });
           }
         );
@@ -568,6 +592,7 @@ export class WebDisplayService implements OnDestroy {
       hasTimerSubscription: !!this.timerSubscription,
       hasStartLightsSubscription: !!this.startLightsSubscription,
       hasLapCountSubscription: !!this.lapCountSubscription,
+      hasFuelModeSubscription: !!this.fuelModeSubscription,
       hasCurrentSession: !!this.currentSession
     });
 
@@ -601,6 +626,17 @@ export class WebDisplayService implements OnDestroy {
       } catch (error) {
         this.logger.error('❌ Error unsubscribing from lap counter:', error);
         this.lapCountSubscription = undefined;
+      }
+    }
+
+    if (this.fuelModeSubscription) {
+      try {
+        this.fuelModeSubscription.unsubscribe();
+        this.fuelModeSubscription = undefined;
+        this.logger.info('✅ Successfully unsubscribed from fuel mode');
+      } catch (error) {
+        this.logger.error('❌ Error unsubscribing from fuel mode:', error);
+        this.fuelModeSubscription = undefined;
       }
     }
 
@@ -1082,34 +1118,15 @@ export class WebDisplayService implements OnDestroy {
   }
 
   private sendToClient(client: any, data: any): void {
-    this.logger.info('📤 === WEBSOCKET SEND TO CLIENT DEBUG ===');
-    this.logger.info('📤 Attempting to send data to client:', client.remoteAddr);
-    
     try {
       if ((window as any).cordova?.plugins?.wsserver) {
         const wsserver = (window as any).cordova.plugins.wsserver;
         const jsonData = JSON.stringify(data);
-        this.logger.info('📤 Data prepared for sending:', {
-          type: data.type,
-          dataSize: jsonData.length,
-          clientAddr: client.remoteAddr,
-          hasData: !!data.data,
-          timestamp: data.timestamp
-        });
-        
-        this.logger.info('📡 Calling wsserver.send()...');
         wsserver.send(client, jsonData);
-        this.logger.info('✅ wsserver.send() completed successfully');
-      } else {
-        this.logger.error('❌ wsserver plugin not available for sending');
       }
     } catch (error) {
-      this.logger.error('❌ === WEBSOCKET SEND ERROR ===');
-      this.logger.error('❌ Error sending data to WebSocket client:', error);
-      this.logger.error('❌ Client that failed:', client.remoteAddr);
-      this.logger.error('❌ Removing failed client from connected list');
+      this.logger.error('Error sending WebSocket data:', error);
       this.connectedClients.delete(client);
-      this.logger.info('📊 Clients after error cleanup:', this.connectedClients.size);
     }
   }
 

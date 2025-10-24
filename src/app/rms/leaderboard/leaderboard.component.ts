@@ -7,30 +7,30 @@ import { Subscription } from 'rxjs';
 const FIELDS = [{
   // no fuel/pit lane
   practice: [
-    'bestlap gap int lastlap laps brakeWear status-combined status',
-    'bestlap sector1 sector2 sector3 lastlap brakeWear status-combined status'
+    'bestlap gap int lastlap laps speed brakeWear status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap speed brakeWear status-combined status'
   ],
   qualifying: [
-    'bestlap gap int lastlap laps brakeWear status-combined status',
-    'bestlap sector1 sector2 sector3 lastlap brakeWear status-combined status'
+    'bestlap gap int lastlap laps speed brakeWear status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap speed brakeWear status-combined status'
   ],
   race: [
-    'time bestlap lastlap laps brakeWear status-combined status',
-    'time sector1 sector2 sector3 lastlap brakeWear status-combined status',
+    'time bestlap lastlap laps speed brakeWear status-combined status',
+    'time sector1 sector2 sector3 lastlap speed brakeWear status-combined status',
   ]
 }, {
   // with fuel/pit lane
   practice: [
-    'bestlap gap int lastlap laps fuel brakeWear status-combined status',
-    'bestlap sector1 sector2 sector3 lastlap fuel brakeWear status-combined status'
+    'bestlap gap int lastlap laps fuel speed brakeWear status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap fuel speed brakeWear status-combined status'
   ],
   qualifying: [
-    'bestlap gap int lastlap laps fuel brakeWear status-combined status',
-    'bestlap sector1 sector2 sector3 lastlap fuel brakeWear status-combined status'
+    'bestlap gap int lastlap laps fuel speed brakeWear status-combined status',
+    'bestlap sector1 sector2 sector3 lastlap fuel speed brakeWear status-combined status'
   ],
   race: [
-    'time bestlap lastlap laps pits fuel brakeWear status-combined status',
-    'time sector1 sector2 sector3 lastlap fuel brakeWear status-combined status'
+    'time bestlap lastlap laps pits fuel speed brakeWear status-combined status',
+    'time sector1 sector2 sector3 lastlap fuel speed brakeWear status-combined status'
   ]
 }];
 
@@ -63,7 +63,8 @@ export class LeaderboardItem {
   blocked?: boolean;
   manuallyUnblocked?: boolean;
   manuallyBlocked?: boolean;
-  brakeWear?: number; // Usure des freins (1-10, 10=neuf, 1=très usé)
+  brakeWear?: number; // Usure des freins (0-15, 15=100%, 0=0%)
+  speed?: number; // Vitesse configurée (0-10, 10=100%, 0=0%)
 }
 
 // TODO: merge with LeaderboardItem, i.e. times == laptimes?

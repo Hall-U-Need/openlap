@@ -147,6 +147,9 @@ class RaceDisplay {
 
         // Mettre à jour les feux de départ
         this.updateStartLights(raceData.startLights || 0, raceData.startBlink || false);
+
+        // Afficher/masquer la colonne fuel selon le mode
+        this.updateFuelColumnVisibility(raceData.fuelMode || false);
     }
 
     updateStartLights(lights, blink) {
@@ -170,6 +173,15 @@ class RaceDisplay {
                 light.classList.add('active');
             }
         });
+    }
+
+    updateFuelColumnVisibility(fuelMode) {
+        // Afficher ou masquer la colonne fuel selon le mode
+        if (fuelMode) {
+            document.body.classList.remove('fuel-mode-disabled');
+        } else {
+            document.body.classList.add('fuel-mode-disabled');
+        }
     }
 
     updateLeaderboard(leaderboardData) {

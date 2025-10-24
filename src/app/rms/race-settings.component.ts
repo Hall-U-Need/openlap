@@ -67,7 +67,8 @@ function createRaceForm(fb: FormBuilder, params: NavParams) {
     stopfin: new FormControl(params.get('stopfin') || false),
     drivers: new FormControl(params.get('drivers') || ''),
     auto: new FormControl(params.get('auto') || false),
-    pace: new FormControl(params.get('pace') || false)
+    pace: new FormControl(params.get('pace') || false),
+    difficultyLevel: new FormControl(params.get('difficultyLevel') || '')
   }, {
     validator: lapsOrTimeRequired
   });
@@ -168,7 +169,8 @@ export class RaceSettingsComponent implements AfterViewInit {
       auto: options.auto,
       pace: options.pace,
       slotmode: options.slotmode,
-      stopfin: options.stopfin
+      stopfin: options.stopfin,
+      difficultyLevel: options.difficultyLevel || undefined
     }));
   }
 

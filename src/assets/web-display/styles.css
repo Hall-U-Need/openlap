@@ -514,6 +514,12 @@ body {
     border-radius: 4px;
 }
 
+/* Masquer la colonne fuel quand le mode fuel n'est pas actif */
+body.fuel-mode-disabled .fuel-gauge,
+body.fuel-mode-disabled .header-fuel {
+    display: none;
+}
+
 .fuel-icon-svg {
     width: 24px;
     height: 24px;

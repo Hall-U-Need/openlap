@@ -6,7 +6,7 @@ import { Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, map, startWith, switchMap } from 'rxjs/operators';
 
 import { AppSettings, Driver, Options } from '../app-settings';
-import { AppService, ControlUnitService, LoggingService } from '../services';
+import { AppService, ControlUnitService, LoggingService, TuningSyncService } from '../services';
 
 import { TuningMenu } from './tuning.menu';
 
@@ -52,9 +52,10 @@ export class TuningPage implements OnDestroy, OnInit {
   }
 
   private subject = new Subject<{type: string, id: number}>();
+  private tuningSyncSubscription?: any;
 
   constructor(private logger: LoggingService, private cu: ControlUnitService, private popover: PopoverController,
-    private ref: ChangeDetectorRef, app: AppService, private settings: AppSettings
+    private ref: ChangeDetectorRef, app: AppService, private settings: AppSettings, private tuningSync: TuningSyncService
   ) {
     this.connected = cu.pipe(
       filter(cu => !!cu),
@@ -94,10 +95,31 @@ export class TuningPage implements OnDestroy, OnInit {
         }
       }
     });
+
+    // Écouter les mises à jour de tuning depuis d'autres composants (ex: difficulté de course)
+    this.tuningSyncSubscription = this.tuningSync.tuningUpdate$.subscribe(update => {
+      this.logger.info('Received tuning update from sync service:', update);
+      const model = this.models[update.carId];
+      if (model) {
+        if (update.speed !== undefined) {
+          model.speed = update.speed;
+        }
+        if (update.brake !== undefined) {
+          model.brake = update.brake;
+        }
+        if (update.fuel !== undefined) {
+          model.fuel = update.fuel;
+        }
+        this.ref.detectChanges();
+      }
+    });
   }
 
   ngOnDestroy() {
     this.subject.complete();
+    if (this.tuningSyncSubscription) {
+      this.tuningSyncSubscription.unsubscribe();
+    }
   }
 
   applyAll() {

@@ -106,7 +106,7 @@
       "cordova-sqlite-storage": {},
       "cordovarduino": {},
       "cordova-plugin-android-permissions": {},
-      "com.rjfun.cordova.httpd": {},
+      "cordova-httpd": {},
       "cordova-plugin-file": {
         "ANDROIDX_WEBKIT_VERSION": "1.4.0"
       },
